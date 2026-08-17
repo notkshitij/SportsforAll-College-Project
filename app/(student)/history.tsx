@@ -13,7 +13,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
-import { APP_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/authStore';
 import { useStayExtensionStore } from '../../store/stayExtensionStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -31,9 +30,9 @@ export default function HistoryScreen() {
   const { user } = useAuthStore();
   const { extensions, setLastCreatedPass } = useStayExtensionStore();
 
-  const studentUser = user || APP_CONFIG.DEMO_STUDENT;
+  const studentUser = user as NonNullable<typeof user>;
   const studentPasses = extensions.filter(
-    (e) => e.studentId === (studentUser.id || 'stu_001')
+    (e) => e.studentId === studentUser.id
   );
 
   const [filterTab, setFilterTab] = useState<'all' | 'valid' | 'expired'>('all');

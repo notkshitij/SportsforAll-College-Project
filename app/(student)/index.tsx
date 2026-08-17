@@ -13,18 +13,14 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
-import { APP_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/authStore';
 import { useStayExtensionStore } from '../../store/stayExtensionStore';
 import { useThemeStore } from '../../store/themeStore';
 import {
-  formatDateShort,
-  formatDateTimeNice,
   formatTime12h,
   getRemainingTime,
   isFacilityOperatingNow,
 } from '../../utils/dateUtils';
-import { formatCurrencyINR } from '../../utils/formatUtils';
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -41,9 +37,9 @@ export default function StudentDashboard() {
   const [currentTimeStr, setCurrentTimeStr] = useState(formatTime12h(new Date()));
   const [operatingStatus, setOperatingStatus] = useState(isFacilityOperatingNow());
 
-  const studentUser = user || APP_CONFIG.DEMO_STUDENT;
+  const studentUser = user as NonNullable<typeof user>;
   const activePass = React.useMemo(() => {
-    return getActivePassForStudent(studentUser.id || 'stu_001');
+    return getActivePassForStudent(studentUser.id);
   }, [extensions, studentUser.id, getActivePassForStudent]);
 
   // Real-time clock & operating status update
@@ -68,14 +64,6 @@ export default function StudentDashboard() {
     refreshStatuses();
     setTimeout(() => setRefreshing(false), 500);
   };
-
-  const studentPasses = React.useMemo(() => {
-    return extensions.filter(
-      (e) => e.studentId === (studentUser.id || 'stu_001')
-    );
-  }, [extensions, studentUser.id]);
-
-  const recentPasses = React.useMemo(() => studentPasses.slice(0, 3), [studentPasses]);
 
   const activePassRemaining = activePass ? getRemainingTime(activePass.validUntil) : null;
 
@@ -122,7 +110,7 @@ export default function StudentDashboard() {
           </View>
           <View style={styles.deptBadge}>
             <Text style={[styles.deptText, { color: colors.primary }]}>
-              {studentUser.enrollment || 'PU-2024-1001'}
+              {studentUser.enrollment}
             </Text>
           </View>
         </View>
@@ -248,116 +236,31 @@ export default function StudentDashboard() {
           </Card>
         ) : null}
 
-        {/* REQUEST STAY EXTENSION ACTION BUTTON */}
-        <View style={styles.actionSection}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.push('/(student)/payment')}
-            style={[
-              styles.bigRequestButton,
-              {
-                backgroundColor: colors.primary,
-                shadowColor: colors.primary,
-              },
-            ]}
-          >
-            <View style={styles.requestBtnLeft}>
-              <View style={styles.requestIconBadge}>
-                <Ionicons name="add-circle" size={28} color="#FFFFFF" />
-              </View>
-              <View>
-                <Text style={styles.requestBtnTitle}>STAY TODAY (4 PM - 8 PM)</Text>
-                <Text style={styles.requestBtnSubtitle}>
-                  Pay ₹100 & get instant QR pass
-                </Text>
-              </View>
+        {/* STAY TODAY BLUE INFO BANNER */}
+        <View
+          style={[
+            styles.stayInfoBanner,
+            {
+              backgroundColor: colors.primary,
+              shadowColor: colors.primary,
+            },
+          ]}
+        >
+          <View style={styles.stayInfoLeft}>
+            <View style={styles.stayIconBadge}>
+              <Ionicons name="time" size={22} color="#FFFFFF" />
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* RECENT TRANSACTIONS */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Recent Transactions
-          </Text>
-          <TouchableOpacity onPress={() => router.push('/(student)/history')}>
-            <Text style={[styles.viewAllText, { color: colors.primary }]}>
-              View All History →
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {recentPasses.length > 0 ? (
-          <View style={styles.transactionsList}>
-            {recentPasses.map((pass) => {
-              const isPassValid = pass.status === 'valid';
-              return (
-                <Card
-                  key={pass.id}
-                  variant="outlined"
-                  onPress={() => handleOpenQR(pass)}
-                  style={styles.txCard}
-                >
-                  <View style={styles.txRow}>
-                    <View style={styles.txLeft}>
-                      <View
-                        style={[
-                          styles.txIconWrapper,
-                          {
-                            backgroundColor: isPassValid
-                              ? isDarkMode
-                                ? 'rgba(16, 185, 129, 0.2)'
-                                : '#D1FAE5'
-                              : isDarkMode
-                              ? 'rgba(239, 68, 68, 0.15)'
-                              : '#FEE2E2',
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={isPassValid ? 'checkmark-circle' : 'time'}
-                          size={20}
-                          color={isPassValid ? colors.success : colors.danger}
-                        />
-                      </View>
-                      <View>
-                        <Text style={[styles.txTitle, { color: colors.text }]}>
-                          {formatDateShort(pass.createdAt)} - {pass.duration} Hour
-                          {pass.duration > 1 ? 's' : ''} Stay
-                        </Text>
-                        <Text style={[styles.txSubtitle, { color: colors.textMuted }]}>
-                          {formatDateTimeNice(pass.createdAt)} • {pass.transactionId}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.txRight}>
-                      <Text style={[styles.txAmount, { color: colors.text }]}>
-                        {formatCurrencyINR(pass.amount)}
-                      </Text>
-                      <Badge
-                        label={isPassValid ? 'PAID / VALID' : 'EXPIRED'}
-                        variant={isPassValid ? 'valid' : 'expired'}
-                        size="sm"
-                      />
-                    </View>
-                  </View>
-                </Card>
-              );
-            })}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stayBannerTitle}>STAY TODAY (4 PM - 8 PM)</Text>
+              <Text style={styles.stayBannerSubtitle}>
+                Fixed ₹100 • Instant QR Pass
+              </Text>
+            </View>
           </View>
-        ) : (
-          <Card variant="flat" style={styles.emptyCard}>
-            <Ionicons name="ticket-outline" size={32} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No sports passes yet
-            </Text>
-            <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-              Purchase your stay pass above to generate an instant QR pass.
-            </Text>
-          </Card>
-        )}
+          <View style={styles.stayPriceBadge}>
+            <Text style={styles.stayPriceText}>₹100</Text>
+          </View>
+        </View>
 
         {/* Poornima Sports Facility Guidelines */}
         <Card variant="outlined" style={styles.infoCard}>
@@ -369,10 +272,27 @@ export default function StudentDashboard() {
           </View>
           <Text style={[styles.infoCardBody, { color: colors.textSecondary }]}>
             • Operating hours are strictly between 4:00 PM and 8:00 PM daily.{'\n'}
-            • Passes must be shown to the campus security officer at entry and exit.{'\n'}
+            • Passes must be shown to the campus guard at entry and exit.{'\n'}
             • Carry your student ID card alongside the digital QR pass.
           </Text>
         </Card>
+
+        {/* COMPACT PAY ₹100 BUTTON */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push('/(student)/payment')}
+          style={[
+            styles.payButtonCompact,
+            {
+              backgroundColor: colors.primary,
+              shadowColor: colors.primary,
+            },
+          ]}
+        >
+          <Ionicons name="wallet-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.payButtonText}>Pay ₹100</Text>
+          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -492,111 +412,76 @@ const styles = StyleSheet.create({
   passActionBtn: {
     flex: 1,
   },
-  actionSection: {
-    width: '100%',
-  },
-  bigRequestButton: {
+  stayInfoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  requestBtnLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  requestIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  requestBtnTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  requestBtnSubtitle: {
-    color: '#DBEAFE',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  transactionsList: {
-    gap: 10,
-  },
-  txCard: {
-    padding: 14,
-  },
-  txRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  txLeft: {
+  stayInfoLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    marginRight: 8,
   },
-  txIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  stayIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  txTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  stayBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
-  txSubtitle: {
-    fontSize: 11,
+  stayBannerSubtitle: {
+    color: '#DBEAFE',
+    fontSize: 12,
     marginTop: 2,
   },
-  txRight: {
-    alignItems: 'flex-end',
-    gap: 4,
+  stayPriceBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  txAmount: {
-    fontSize: 14,
+  stayPriceText: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '800',
   },
-  emptyCard: {
-    padding: 24,
+  payButtonCompact: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    borderRadius: 24,
+    alignSelf: 'center',
+    minWidth: 160,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    marginTop: 4,
   },
-  emptyText: {
+  payButtonText: {
+    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
-  },
-  emptySubtext: {
-    fontSize: 12,
-    textAlign: 'center',
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   infoCard: {
     padding: 16,
