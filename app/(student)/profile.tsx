@@ -24,25 +24,51 @@ export default function StudentProfileScreen() {
   const { colors, isDarkMode, toggleTheme } = useThemeStore();
   const { user, logout, updateUserProfile } = useAuthStore();
 
-  const studentUser = user || APP_CONFIG.DEMO_STUDENT;
+  const studentUser = user as NonNullable<typeof user>;
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [name, setName] = useState(studentUser.name);
-  const [department, setDepartment] = useState(studentUser.department || 'Computer Science');
-  const [year, setYear] = useState(studentUser.year || '2nd Year');
+  const [department, setDepartment] = useState(studentUser.department);
+  const [year, setYear] = useState(studentUser.year || '');
+  const [phone, setPhone] = useState(studentUser.phone || '');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveProfile = () => {
-    updateUserProfile({
-      name: name.trim(),
-      department: department.trim(),
-      year: year.trim(),
-    });
-    setEditModalVisible(false);
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await updateUserProfile({
+        name: name.trim(),
+        department: department.trim(),
+        year: year.trim(),
+        phone: phone.trim(),
+      });
+      setEditModalVisible(false);
+    } catch (error: any) {
+      Alert.alert(
+        'Could Not Save',
+        error?.message || 'Something went wrong while saving your profile. Please try again.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLogout = () => {
-    logout();
-    router.replace('/(auth)/login');
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: () => {
+            logout();
+            router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -59,15 +85,17 @@ export default function StudentProfileScreen() {
         {/* Profile Card */}
         <Card variant="elevated" style={styles.profileCard}>
           <View style={styles.avatarSection}>
-            <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-              <Text style={styles.avatarInitials}>
-                {studentUser.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </Text>
+            <View
+              style={[
+                styles.avatarCircle,
+                {
+                  backgroundColor: 'transparent',
+                  borderColor: colors.border,
+                  borderWidth: 1.5,
+                },
+              ]}
+            >
+              <Ionicons name="person" size={32} color={colors.primary} />
             </View>
             <View style={styles.nameSection}>
               <Text style={[styles.profileName, { color: colors.text }]}>
@@ -91,10 +119,10 @@ export default function StudentProfileScreen() {
           <View style={styles.infoList}>
             <View style={styles.infoRow}>
               <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
-                Enrollment Number
+                Registration Number
               </Text>
               <Text style={[styles.infoVal, { color: colors.text }]}>
-                {studentUser.enrollment || 'PU-2024-1001'}
+                {studentUser.enrollment}
               </Text>
             </View>
 
@@ -103,7 +131,7 @@ export default function StudentProfileScreen() {
                 Department
               </Text>
               <Text style={[styles.infoVal, { color: colors.text }]}>
-                {studentUser.department || 'Computer Science & Engineering'}
+                {studentUser.department}
               </Text>
             </View>
 
@@ -112,7 +140,16 @@ export default function StudentProfileScreen() {
                 Academic Year
               </Text>
               <Text style={[styles.infoVal, { color: colors.text }]}>
-                {studentUser.year || '2nd Year'}
+                {studentUser.year}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
+                Phone Number
+              </Text>
+              <Text style={[styles.infoVal, { color: colors.text }]}>
+                {studentUser.phone}
               </Text>
             </View>
 
@@ -188,16 +225,19 @@ export default function StudentProfileScreen() {
 
           <View style={styles.divider} />
 
-          {/* Security Helpdesk */}
+          {/* Contact Us */}
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="call-outline" size={20} color={colors.info} />
-              <View>
+              <Ionicons name="headset-outline" size={20} color={colors.info} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.settingTitle, { color: colors.text }]}>
-                  Security Helpdesk
+                  Contact Us
                 </Text>
                 <Text style={[styles.settingSub, { color: colors.textMuted }]}>
-                  {APP_CONFIG.EMERGENCY_SECURITY_PHONE}
+                  Phone: {APP_CONFIG.EMERGENCY_SECURITY_PHONE}
+                </Text>
+                <Text style={[styles.settingSub, { color: colors.textMuted, marginTop: 2 }]}>
+                  Email: {APP_CONFIG.HELPDESK_EMAIL}
                 </Text>
               </View>
             </View>
@@ -205,18 +245,26 @@ export default function StudentProfileScreen() {
         </Card>
 
         {/* LOGOUT BUTTON */}
-        <Button
-          title="LOGOUT FROM ACCOUNT"
-          variant="danger"
-          size="lg"
-          icon="log-out-outline"
+        <TouchableOpacity
+          activeOpacity={0.8}
           onPress={handleLogout}
-          style={styles.logoutBtn}
-        />
-
-        <Text style={[styles.versionText, { color: colors.textMuted }]}>
-          {APP_CONFIG.APP_NAME} v1.0.0 • {APP_CONFIG.UNIVERSITY_NAME}
-        </Text>
+          style={[
+            styles.logoutButton,
+            {
+              backgroundColor: isDarkMode
+                ? 'rgba(239, 68, 68, 0.12)'
+                : 'rgba(239, 68, 68, 0.06)',
+              borderColor: isDarkMode
+                ? 'rgba(239, 68, 68, 0.35)'
+                : 'rgba(239, 68, 68, 0.25)',
+            },
+          ]}
+        >
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+          <Text style={[styles.logoutText, { color: colors.danger }]}>
+            Log Out from Account
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -247,11 +295,21 @@ export default function StudentProfileScreen() {
             leftIcon="calendar-outline"
           />
 
+          <Input
+            label="Phone Number"
+            value={phone}
+            onChangeText={setPhone}
+            leftIcon="call-outline"
+            keyboardType="phone-pad"
+          />
+
           <Button
             title="Save Profile Updates"
             variant="primary"
             icon="save-outline"
             onPress={handleSaveProfile}
+            loading={isSaving}
+            disabled={isSaving}
             style={{ marginTop: 8 }}
           />
         </View>
@@ -360,13 +418,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 1,
   },
-  logoutBtn: {
-    marginTop: 8,
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    marginTop: 10,
+    alignSelf: 'center',
   },
-  versionText: {
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 4,
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   modalContent: {
     gap: 10,

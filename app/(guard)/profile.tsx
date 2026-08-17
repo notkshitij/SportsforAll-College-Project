@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
 import { APP_CONFIG } from '../../constants/config';
@@ -25,8 +24,21 @@ export default function GuardProfileScreen() {
   const guardUser = user || APP_CONFIG.DEMO_GUARD;
 
   const handleLogout = () => {
-    logout();
-    router.replace('/(auth)/login');
+    Alert.alert(
+      'End Shift & Log Out',
+      'Are you sure you want to end your shift and log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Shift',
+          style: 'destructive',
+          onPress: () => {
+            logout();
+            router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -43,8 +55,17 @@ export default function GuardProfileScreen() {
         {/* Guard Credentials Card */}
         <Card variant="elevated" style={styles.profileCard}>
           <View style={styles.avatarSection}>
-            <View style={[styles.avatarCircle, { backgroundColor: colors.warningDark }]}>
-              <Ionicons name="shield" size={32} color="#FFFFFF" />
+            <View
+              style={[
+                styles.avatarCircle,
+                {
+                  backgroundColor: 'transparent',
+                  borderColor: colors.border,
+                  borderWidth: 1.5,
+                },
+              ]}
+            >
+              <Ionicons name="person" size={32} color={colors.warningDark} />
             </View>
             <View style={styles.nameSection}>
               <Text style={[styles.profileName, { color: colors.text }]}>
@@ -137,16 +158,19 @@ export default function GuardProfileScreen() {
 
           <View style={styles.divider} />
 
-          {/* University Control Room */}
+          {/* Campus Control Room & Support */}
           <View style={styles.settingRow}>
             <View style={styles.settingLeft}>
-              <Ionicons name="radio" size={20} color={colors.warning} />
-              <View>
+              <Ionicons name="headset-outline" size={20} color={colors.warning} />
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.settingTitle, { color: colors.text }]}>
-                  Campus Control Room
+                  Campus Security & Admin Support
                 </Text>
                 <Text style={[styles.settingSub, { color: colors.textMuted }]}>
-                  Emergency Hotline: {APP_CONFIG.EMERGENCY_SECURITY_PHONE}
+                  Hotline: {APP_CONFIG.EMERGENCY_SECURITY_PHONE}
+                </Text>
+                <Text style={[styles.settingSub, { color: colors.textMuted, marginTop: 2 }]}>
+                  Email: {APP_CONFIG.HELPDESK_EMAIL}
                 </Text>
               </View>
             </View>
@@ -154,18 +178,26 @@ export default function GuardProfileScreen() {
         </Card>
 
         {/* LOGOUT */}
-        <Button
-          title="END SHIFT & LOGOUT"
-          variant="danger"
-          size="lg"
-          icon="log-out-outline"
+        <TouchableOpacity
+          activeOpacity={0.8}
           onPress={handleLogout}
-          style={styles.logoutBtn}
-        />
-
-        <Text style={[styles.versionText, { color: colors.textMuted }]}>
-          {APP_CONFIG.APP_NAME} Security Terminal • {APP_CONFIG.UNIVERSITY_NAME}
-        </Text>
+          style={[
+            styles.logoutButton,
+            {
+              backgroundColor: isDarkMode
+                ? 'rgba(239, 68, 68, 0.12)'
+                : 'rgba(239, 68, 68, 0.06)',
+              borderColor: isDarkMode
+                ? 'rgba(239, 68, 68, 0.35)'
+                : 'rgba(239, 68, 68, 0.25)',
+            },
+          ]}
+        >
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+          <Text style={[styles.logoutText, { color: colors.danger }]}>
+            End Shift & Log Out
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -263,12 +295,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 1,
   },
-  logoutBtn: {
-    marginTop: 8,
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    marginTop: 10,
+    alignSelf: 'center',
   },
-  versionText: {
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 4,
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });
