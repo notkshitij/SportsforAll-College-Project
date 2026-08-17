@@ -20,7 +20,7 @@ export class QRService {
 ━━━━━━━━━━━━━━━━━━━━
 📄 *Receipt ID:* ${receiptId}
 👤 *Student:* ${extension.studentName}
-🆔 *Enrollment:* ${extension.studentEnrollment}
+🆔 *Registration No.:* ${extension.studentEnrollment}
 🏛️ *Dept:* ${extension.department}
 ⏱️ *Duration:* ${extension.duration} Hour(s)
 ⏰ *Valid Until:* ${validUntilTime}
@@ -189,7 +189,7 @@ export class QRService {
               <td class="value">${extension.studentName}</td>
             </tr>
             <tr>
-              <td class="label">Enrollment No:</td>
+              <td class="label">Registration No:</td>
               <td class="value">${extension.studentEnrollment}</td>
             </tr>
             <tr>

@@ -120,7 +120,7 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
           </Text>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
-              Enrollment:
+              Registration No.:
             </Text>
             <Text style={[styles.detailValue, { color: colors.textSecondary }]}>
               {extension.studentEnrollment}

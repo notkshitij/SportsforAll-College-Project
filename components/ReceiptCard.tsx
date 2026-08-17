@@ -111,7 +111,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
           </View>
 
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Enrollment ID</Text>
+            <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Registration No.</Text>
             <Text style={[styles.rowValue, { color: colors.text }]}>{extension.studentEnrollment}</Text>
           </View>
 
