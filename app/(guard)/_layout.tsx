@@ -5,11 +5,17 @@ import React from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useThemeStore } from '../../store/themeStore';
 
-const GUARD_PILL_WIDTH = 196;
-const GUARD_PILL_HEIGHT = 52;
+const GUARD_PILL_WIDTH = 176;
+const GUARD_PILL_HEIGHT = 48;
 
 function FloatingCustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { isDarkMode } = useThemeStore();
+
+  const currentRouteName = state.routes[state.index]?.name;
+  const hideTabBarRoutes = ['scanner', 'scan-result'];
+  if (hideTabBarRoutes.includes(currentRouteName)) {
+    return null;
+  }
 
   // Filter ONLY visible tabs
   const visibleRoutes = state.routes.filter((route) => {

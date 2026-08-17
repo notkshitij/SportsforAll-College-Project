@@ -3,13 +3,21 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { CompleteProfileGate, isStudentProfileComplete } from '../../components/student/CompleteProfileGate';
+import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 
-const STUDENT_PILL_WIDTH = 150;
-const STUDENT_PILL_HEIGHT = 52;
+const STUDENT_PILL_WIDTH = 134;
+const STUDENT_PILL_HEIGHT = 48;
 
 function FloatingCustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { isDarkMode } = useThemeStore();
+
+  const currentRouteName = state.routes[state.index]?.name;
+  const hideTabBarRoutes = ['payment', 'payment-success', 'qr-display', 'receipt'];
+  if (hideTabBarRoutes.includes(currentRouteName)) {
+    return null;
+  }
 
   // Filter ONLY the 3 visible tabs
   const visibleRoutes = state.routes.filter((route) => {
@@ -77,6 +85,14 @@ function FloatingCustomTabBar({ state, descriptors, navigation }: BottomTabBarPr
 }
 
 export default function StudentLayout() {
+  const { user } = useAuthStore();
+
+  // Block the ENTIRE student section until the real profile is filled in.
+  // No fake/demo data is ever used here.
+  if (!isStudentProfileComplete(user)) {
+    return <CompleteProfileGate />;
+  }
+
   return (
     <Tabs
       tabBar={(props) => <FloatingCustomTabBar {...props} />}
