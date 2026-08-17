@@ -105,7 +105,7 @@ export const ScanResultModal: React.FC<ScanResultModalProps> = ({
               </View>
 
               <View style={styles.detailItem}>
-                <Text style={styles.label}>Enrollment No.</Text>
+                <Text style={styles.label}>Registration No.</Text>
                 <Text style={styles.value}>{result.enrollment}</Text>
               </View>
 

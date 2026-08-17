@@ -23,7 +23,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
 
   const handleSubmit = () => {
     if (!code.trim()) {
-      setError('Please enter a Transaction ID or Enrollment No.');
+      setError('Please enter a Transaction ID or Registration No.');
       return;
     }
     setError('');
@@ -41,11 +41,11 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
     <Modal visible={visible} onClose={onClose} title="Manual Pass Verification">
       <View style={styles.container}>
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Enter Student Enrollment Number or Transaction ID (e.g., TXN12345678) to verify sports stay pass:
+          Enter Student Registration Number or Transaction ID (e.g., TXN12345678) to verify sports stay pass:
         </Text>
 
         <Input
-          label="Pass Identifier / TXN ID / Enrollment"
+          label="Pass Identifier / TXN ID / Reg. No."
           placeholder="e.g. TXN12345678 or PU-2024-1001"
           value={code}
           onChangeText={(txt) => {
