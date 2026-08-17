@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { AuthService } from '../services/authService';
 import { supabase } from '../services/supabase';
+import { ProfileService } from '../services/profileService';
 import { INITIAL_GUARD_USER, INITIAL_STUDENT_USER } from '../services/mockDb';
 import { User, UserRole } from '../types';
 
@@ -21,7 +22,7 @@ interface AuthState {
   loginAsDemoGuard: () => void;
   setUser: (user: User | null) => void;
   logout: () => Promise<void>;
-  updateUserProfile: (updates: Partial<User>) => void;
+  updateUserProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -47,6 +48,10 @@ export const useAuthStore = create<AuthState>()(
             activeRole: user.role,
             isLoading: false,
           });
+          // Persist the full profile to Supabase (fire-and-forget so login isn't blocked)
+          ProfileService.upsertProfile(user).catch((e) =>
+            console.warn('Profile sync failed:', e?.message)
+          );
           return user;
         } catch (error) {
           set({ isLoading: false });
@@ -64,6 +69,10 @@ export const useAuthStore = create<AuthState>()(
             activeRole: user.role,
             isLoading: false,
           });
+          // Persist the full profile to Supabase (fire-and-forget so login isn't blocked)
+          ProfileService.upsertProfile(user).catch((e) =>
+            console.warn('Profile sync failed:', e?.message)
+          );
           return user;
         } catch (error) {
           set({ isLoading: false });
@@ -111,15 +120,27 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      updateUserProfile: (updates) => {
+      updateUserProfile: async (updates) => {
         const current = get().user;
         if (!current) return;
-        set({
-          user: {
-            ...current,
-            ...updates,
-          },
-        });
+
+        const updatedUser: User = {
+          ...current,
+          ...updates,
+        };
+
+        // Update local state immediately for a snappy UI
+        set({ user: updatedUser });
+
+        // Persist the FULL profile to Supabase
+        try {
+          const saved = await ProfileService.upsertProfile(updatedUser);
+          set({ user: saved });
+        } catch (error) {
+          // Roll back local state if the Supabase write fails
+          set({ user: current });
+          throw error;
+        }
       },
     }),
     {

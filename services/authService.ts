@@ -47,10 +47,10 @@ export class AuthService {
     const newUser: User = {
       id: isGuard ? `guard_${Date.now()}` : `stu_${Date.now()}`,
       email: cleanEmail,
-      name: formattedName || (isGuard ? 'Security Officer' : 'Poornima Student'),
-      enrollment: isGuard ? 'SEC-STAFF' : `PU-2024-${Math.floor(1000 + Math.random() * 9000)}`,
-      department: isGuard ? 'Campus Security Department' : 'Computer Science & Engineering',
-      year: isGuard ? undefined : '2nd Year',
+      name: isGuard ? (formattedName || 'Security Officer') : '',
+      enrollment: isGuard ? 'SEC-STAFF' : '',
+      department: isGuard ? 'Campus Security Department' : '',
+      year: isGuard ? undefined : '',
       role: isGuard ? 'guard' : 'student',
       createdAt: new Date().toISOString(),
     };
