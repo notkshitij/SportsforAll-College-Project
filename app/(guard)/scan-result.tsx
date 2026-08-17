@@ -108,7 +108,7 @@ export default function ScanResultScreen() {
 
               <View style={styles.tableRow}>
                 <Text style={[styles.tableLabel, { color: colors.textMuted }]}>
-                  Enrollment ID
+                  Registration No.
                 </Text>
                 <Text style={[styles.tableValue, { color: colors.text }]}>
                   {currentResult?.enrollment || 'N/A'}

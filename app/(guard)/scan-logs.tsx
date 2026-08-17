@@ -218,7 +218,7 @@ export default function ScanLogsScreen() {
         >
           <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
-            placeholder="Search student name or enrollment..."
+            placeholder="Search student name or reg. no..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}

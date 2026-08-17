@@ -197,7 +197,7 @@ export default function GuardDashboard() {
                       {log.studentName}
                     </Text>
                     <Text style={[styles.logMeta, { color: colors.textMuted }]}>
-                      {formatTime12h(log.scannedAt)} • Enrollment: {log.enrollment}
+                      {formatTime12h(log.scannedAt)} • Reg. No: {log.enrollment}
                     </Text>
                     {log.reason ? (
                       <Text style={[styles.logReason, { color: colors.danger }]}>
