@@ -48,6 +48,6 @@ export const APP_CONFIG = {
   CURRENCY_SYMBOL: '₹',
   
   // University Contact
-  HELPDESK_EMAIL: 'sports@poornima.edu.in',
-  EMERGENCY_SECURITY_PHONE: '+91 141 277 0790',
+  HELPDESK_EMAIL: 'director.admin@poornima.edu.in',
+  EMERGENCY_SECURITY_PHONE: '+91 9829255103',
 };
