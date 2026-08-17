@@ -25,6 +25,18 @@ export class StayExtensionService {
   }
 
   /**
+   * Keep only passes created within the last N days (default 7) for local,
+   * on-device display. This does NOT touch Supabase — Supabase keeps every
+   * pass forever via PassHistoryService. This purely trims what the student
+   * sees/what lives in local AsyncStorage.
+   */
+  static pruneOldExtensions(extensions: StayExtension[], days: number = 7): StayExtension[] {
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    const kept = extensions.filter((ext) => new Date(ext.createdAt).getTime() >= cutoff);
+    return kept.length === extensions.length ? extensions : kept;
+  }
+
+  /**
    * Find current active pass for a student (if any)
    */
   static getActiveStudentPass(extensions: StayExtension[], studentId: string): StayExtension | null {
