@@ -1,25 +1,58 @@
 {
   "expo": {
-    "name": "SportsForAll",
-    "slug": "SportsForAll",
+    "name": "Sportsforall",
+    "slug": "manvendra",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
+    "scheme": "sportsforall",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1E40AF"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Sportsforall requires camera access to scan student stay extension QR codes."
+      }
     },
     "android": {
+      "package": "com.sportsforall.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#1E40AF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Sportsforall requires camera access to scan and verify student stay extension QR codes."
+        }
+      ],
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "807d6e32-98c3-427c-bfb8-7b629318904d"
+      }
+    },
+    "owner": "manksh1805s-team"
   }
 }
