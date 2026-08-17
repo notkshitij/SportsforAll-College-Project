@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PaymentButton } from '../../components/PaymentButton';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
@@ -19,7 +19,7 @@ export default function PaymentScreen() {
   const { user } = useAuthStore();
   const { addExtension, setLastCreatedPass } = useStayExtensionStore();
 
-  const studentUser = user || APP_CONFIG.DEMO_STUDENT;
+  const studentUser = user as NonNullable<typeof user>;
 
   const [loading, setLoading] = useState(false);
 
@@ -59,6 +59,7 @@ export default function PaymentScreen() {
         title="Confirm & Pay"
         subtitle="UPI Gateway Simulation"
         showBack
+        showThemeToggle={false}
       />
 
       <ScrollView
@@ -68,10 +69,22 @@ export default function PaymentScreen() {
         {/* Order Details Card */}
         <Card variant="elevated" style={styles.card}>
           <View style={styles.cardHeader}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(37, 99, 235, 0.1)' }]}>
-              <Ionicons name="receipt" size={24} color={colors.primary} />
+            <View
+              style={[
+                styles.puLogoBadge,
+                {
+                  backgroundColor: isDarkMode ? '#1E293B' : '#FFFFFF',
+                  borderColor: isDarkMode ? '#334155' : '#E2E8F0',
+                },
+              ]}
+            >
+              <Image
+                source={require('../../assets/pu_logo.png')}
+                style={styles.puLogo}
+                resizeMode="contain"
+              />
             </View>
-            <View>
+            <View style={styles.cardTitleContainer}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>
                 Order Summary
               </Text>
@@ -93,10 +106,10 @@ export default function PaymentScreen() {
 
             <View style={styles.detailRow}>
               <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
-                Enrollment No.
+                Registration No.
               </Text>
               <Text style={[styles.detailValue, { color: colors.text }]}>
-                {studentUser.enrollment || 'PU-2024-1001'}
+                {studentUser.enrollment}
               </Text>
             </View>
 
@@ -190,12 +203,21 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 16,
   },
-  iconBox: {
+  cardTitleContainer: {
+    flex: 1,
+  },
+  puLogoBadge: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 3,
+    borderWidth: 1.5,
+  },
+  puLogo: {
+    width: '100%',
+    height: '100%',
   },
   cardTitle: {
     fontSize: 18,
