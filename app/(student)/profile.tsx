@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -16,13 +16,17 @@ import { Header } from '../../components/ui/Header';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { APP_CONFIG } from '../../constants/config';
+import { StayExtensionService } from '../../services/stayExtensionService';
 import { useAuthStore } from '../../store/authStore';
+import { useStayExtensionStore } from '../../store/stayExtensionStore';
 import { useThemeStore } from '../../store/themeStore';
+import { formatTime12h, getRemainingTime } from '../../utils/dateUtils';
 
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { colors, isDarkMode, toggleTheme } = useThemeStore();
   const { user, logout, updateUserProfile } = useAuthStore();
+  const { extensions, refreshStatuses } = useStayExtensionStore();
 
   const studentUser = user as NonNullable<typeof user>;
 
@@ -32,6 +36,66 @@ export default function StudentProfileScreen() {
   const [year, setYear] = useState(studentUser.year || '');
   const [phone, setPhone] = useState(studentUser.phone || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  // Refresh pass statuses when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshStatuses();
+    }, [refreshStatuses])
+  );
+
+  // Real-time ticker to auto-update status when time passes 4 PM / 8 PM / expiry
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((prev) => prev + 1);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Compute dynamic Facility Pass Status
+  const passStatus = useMemo(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeVal = currentHour + currentMinute / 60;
+    const startHour = APP_CONFIG.OPERATING_HOURS_START; // 16 (4:00 PM)
+    const endHour = APP_CONFIG.OPERATING_HOURS_END;     // 20 (8:00 PM)
+
+    // 1. Check if student has a valid active pass
+    const activePass = StayExtensionService.getActiveStudentPass(extensions, studentUser.id);
+    if (activePass) {
+      const { isExpired } = getRemainingTime(activePass.validUntil);
+      if (!isExpired) {
+        return {
+          label: `✅ Active (Till ${formatTime12h(activePass.validUntil)})`,
+          color: colors.success,
+        };
+      }
+    }
+
+    // 2. After 8:00 PM: Facility closed for today (booking not allowed)
+    if (currentTimeVal >= endHour) {
+      return {
+        label: '❌ Expired (Closed for Today)',
+        color: colors.danger,
+      };
+    }
+
+    // 3. Between 4:00 PM & 8:00 PM (Facility open): Student has not booked / paid yet
+    if (currentTimeVal >= startHour && currentTimeVal < endHour) {
+      return {
+        label: '⭕ Book Pass (4 PM – 8 PM)',
+        color: colors.warning,
+      };
+    }
+
+    // 4. Before 4:00 PM: Facility not yet open
+    return {
+      label: '⭕ Inactive (Opens at 4:00 PM)',
+      color: colors.textMuted,
+    };
+  }, [extensions, studentUser.id, colors, tick]);
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -157,8 +221,8 @@ export default function StudentProfileScreen() {
               <Text style={[styles.infoLabel, { color: colors.textMuted }]}>
                 Facility Pass Status
               </Text>
-              <Text style={[styles.infoVal, { color: colors.success }]}>
-                ✅ Registered Active
+              <Text style={[styles.infoVal, { color: passStatus.color }]}>
+                {passStatus.label}
               </Text>
             </View>
           </View>

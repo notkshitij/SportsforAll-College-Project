@@ -135,14 +135,15 @@ export default function PaymentSuccessScreen() {
               style={styles.actionBtn}
             />
 
-            <Button
+            {/* DOWNLOAD RECEIPT hidden for students */}
+            {/* <Button
               title="DOWNLOAD RECEIPT"
               variant="outline"
               size="md"
               icon="download-outline"
               onPress={() => router.push('/(student)/receipt')}
               style={styles.actionBtn}
-            />
+            /> */}
 
             <Button
               title="BACK TO DASHBOARD"

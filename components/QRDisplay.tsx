@@ -20,13 +20,11 @@ import { Button } from './ui/Button';
 interface QRDisplayProps {
   extension: StayExtension;
   onViewReceipt?: () => void;
-  onHomePress?: () => void;
 }
 
 export const QRDisplay: React.FC<QRDisplayProps> = ({
   extension,
   onViewReceipt,
-  onHomePress,
 }) => {
   const { colors, isDarkMode } = useThemeStore();
   const [timeRemaining, setTimeRemaining] = useState(getRemainingTime(extension.validUntil));
@@ -230,45 +228,37 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleDownloadPdf}
-            disabled={isDownloading}
-            style={[
-              styles.actionButton,
-              { backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9', borderColor: colors.border },
-            ]}
-          >
-            {isDownloading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <>
-                <Ionicons name="download-outline" size={18} color={colors.primary} />
-                <Text style={[styles.actionButtonText, { color: colors.text }]}>PDF Receipt</Text>
-              </>
-            )}
-          </TouchableOpacity>
+            {/* PDF Receipt hidden for students */}
+            {/* <TouchableOpacity
+              onPress={handleDownloadPdf}
+              disabled={isDownloading}
+              style={[
+                styles.actionButton,
+                { backgroundColor: isDarkMode ? '#1E293B' : '#F1F5F9', borderColor: colors.border },
+              ]}
+            >
+              {isDownloading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.actionButtonText, { color: colors.text }]}>PDF Receipt</Text>
+                </>
+              )}
+            </TouchableOpacity> */}
+          </View>
+
+          {/* View Full Receipt hidden for students */}
+          {/* {onViewReceipt && (
+            <Button
+              title="View Full Receipt"
+              variant="outline"
+              icon="receipt-outline"
+              onPress={onViewReceipt}
+              style={styles.fullWidthBtn}
+            />
+          )} */}
         </View>
-
-        {onViewReceipt && (
-          <Button
-            title="View Full Receipt"
-            variant="outline"
-            icon="receipt-outline"
-            onPress={onViewReceipt}
-            style={styles.fullWidthBtn}
-          />
-        )}
-
-        {onHomePress && (
-          <Button
-            title="Back to Dashboard"
-            variant="primary"
-            icon="home-outline"
-            onPress={onHomePress}
-            style={styles.fullWidthBtn}
-          />
-        )}
-      </View>
     </View>
   );
 };

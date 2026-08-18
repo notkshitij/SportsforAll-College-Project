@@ -224,14 +224,15 @@ export default function StudentDashboard() {
                 onPress={() => handleOpenQR(activePass)}
                 style={styles.passActionBtn}
               />
-              <Button
+              {/* E-Receipt hidden for students */}
+              {/* <Button
                 title="E-Receipt"
                 variant="outline"
                 size="sm"
                 icon="receipt-outline"
                 onPress={() => handleOpenReceipt(activePass)}
                 style={styles.passActionBtn}
-              />
+              /> */}
             </View>
           </Card>
         ) : null}

@@ -38,8 +38,7 @@ export default function QRDisplayScreen() {
         {currentPass ? (
           <QRDisplay
             extension={currentPass}
-            onViewReceipt={() => router.push('/(student)/receipt')}
-            onHomePress={() => router.replace('/(student)')}
+            /* onViewReceipt={() => router.push('/(student)/receipt')} */
           />
         ) : (
           <Card variant="elevated" style={styles.emptyCard}>

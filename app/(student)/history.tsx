@@ -162,14 +162,15 @@ export default function HistoryScreen() {
                 onPress={() => handleOpenQR(item)}
                 style={styles.expBtn}
               />
-              <Button
+              {/* E-Receipt hidden for students */}
+              {/* <Button
                 title="E-Receipt"
                 variant="outline"
                 size="sm"
                 icon="receipt-outline"
                 onPress={() => handleOpenReceipt(item)}
                 style={styles.expBtn}
-              />
+              /> */}
             </View>
           </View>
         )}
