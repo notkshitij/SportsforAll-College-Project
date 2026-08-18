@@ -4,6 +4,20 @@ import { isValidPoornimaEmail } from '../utils/validationUtils';
 import { INITIAL_GUARD_USER, INITIAL_STUDENT_USER, INITIAL_USERS } from './mockDb';
 import { signInWithGoogleNative } from './supabase';
 
+/**
+ * Deterministic id from an email address. Same email ALWAYS produces the
+ * same id, so the same person logging in twice (even on different days,
+ * even after logging out) maps to the same profile row in Supabase
+ * instead of a brand new one.
+ */
+function stableIdFromEmail(email: string, prefix: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = (hash * 31 + email.charCodeAt(i)) >>> 0;
+  }
+  return `${prefix}_${hash.toString(36)}`;
+}
+
 export class AuthService {
   /**
    * Real Supabase Google OAuth sign-in flow (native, no browser)
@@ -45,7 +59,7 @@ export class AuthService {
       .join(' ');
 
     const newUser: User = {
-      id: isGuard ? `guard_${Date.now()}` : `stu_${Date.now()}`,
+      id: stableIdFromEmail(cleanEmail, isGuard ? 'guard' : 'stu'),
       email: cleanEmail,
       name: isGuard ? (formattedName || 'Security Officer') : '',
       enrollment: isGuard ? 'SEC-STAFF' : '',

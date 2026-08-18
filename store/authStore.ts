@@ -25,6 +25,33 @@ interface AuthState {
   updateUserProfile: (updates: Partial<User>) => Promise<void>;
 }
 
+/**
+ * On every login we get back a FRESH user object from AuthService (or
+ * Google) which never carries the profile details someone already filled
+ * in — those live in Supabase. Without this merge, logging in again would
+ * silently wipe the saved name/enrollment/department/year/phone and force
+ * the "Complete Your Profile" screen every single time.
+ *
+ * Priority: Supabase saved profile > previously logged-in local user (same
+ * email) > blank fresh user (only for a genuinely first-ever login).
+ */
+async function mergeWithSavedProfile(freshUser: User, previousLocalUser: User | null): Promise<User> {
+  try {
+    const saved = await ProfileService.getProfile(freshUser.id);
+    if (saved) {
+      return { ...freshUser, ...saved, id: freshUser.id, email: freshUser.email, role: freshUser.role };
+    }
+  } catch (e: any) {
+    console.warn('Could not fetch saved profile, falling back to local cache:', e?.message);
+  }
+
+  if (previousLocalUser && previousLocalUser.email === freshUser.email) {
+    return { ...freshUser, ...previousLocalUser, id: freshUser.id, email: freshUser.email, role: freshUser.role };
+  }
+
+  return freshUser;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -41,18 +68,19 @@ export const useAuthStore = create<AuthState>()(
       loginWithGoogle: async () => {
         set({ isLoading: true });
         try {
-          const { user } = await AuthService.signInWithGoogle();
+          const { user: freshUser } = await AuthService.signInWithGoogle();
+          const mergedUser = await mergeWithSavedProfile(freshUser, get().user);
           set({
-            user,
+            user: mergedUser,
             isAuthenticated: true,
-            activeRole: user.role,
+            activeRole: mergedUser.role,
             isLoading: false,
           });
           // Persist the full profile to Supabase (fire-and-forget so login isn't blocked)
-          ProfileService.upsertProfile(user).catch((e) =>
+          ProfileService.upsertProfile(mergedUser).catch((e) =>
             console.warn('Profile sync failed:', e?.message)
           );
-          return user;
+          return mergedUser;
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -62,18 +90,19 @@ export const useAuthStore = create<AuthState>()(
       loginWithEmail: async (email: string) => {
         set({ isLoading: true });
         try {
-          const { user } = await AuthService.authenticateByEmail(email);
+          const { user: freshUser } = await AuthService.authenticateByEmail(email);
+          const mergedUser = await mergeWithSavedProfile(freshUser, get().user);
           set({
-            user,
+            user: mergedUser,
             isAuthenticated: true,
-            activeRole: user.role,
+            activeRole: mergedUser.role,
             isLoading: false,
           });
           // Persist the full profile to Supabase (fire-and-forget so login isn't blocked)
-          ProfileService.upsertProfile(user).catch((e) =>
+          ProfileService.upsertProfile(mergedUser).catch((e) =>
             console.warn('Profile sync failed:', e?.message)
           );
-          return user;
+          return mergedUser;
         } catch (error) {
           set({ isLoading: false });
           throw error;
