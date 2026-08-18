@@ -14,8 +14,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Sportsforall requires camera access to scan student stay extension QR codes."
-      }
+        "NSCameraUsageDescription": "Sportsforall requires camera access to scan student stay extension QR codes.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.sportsforall.app"
     },
     "android": {
       "package": "com.sportsforall.app",

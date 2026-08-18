@@ -24,15 +24,11 @@ export default function SplashScreen() {
     isNavigating.current = true;
 
     if (isAuthenticated) {
-      if (activeRole === 'guard') {
-        router.replace('/(guard)');
-      } else {
-        router.replace('/(student)');
-      }
+      router.replace('/(student)');
     } else {
       router.replace('/(auth)/login');
     }
-  }, [isAuthenticated, activeRole, router]);
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     // Smooth Entrance Animation
@@ -94,19 +90,11 @@ export default function SplashScreen() {
 
         <Text style={styles.tagline}>{APP_CONFIG.UNIVERSITY_TAGLINE}</Text>
 
-        {/* Live Sports Status Pills */}
+        {/* Live Sports Status Pill */}
         <View style={styles.sportsRow}>
           <View style={styles.sportPill}>
-            <Ionicons name="fitness" size={14} color="#E2E8F0" />
-            <Text style={styles.sportText}>Complex</Text>
-          </View>
-          <View style={styles.sportPill}>
-            <Ionicons name="tennisball" size={14} color="#E2E8F0" />
-            <Text style={styles.sportText}>Courts</Text>
-          </View>
-          <View style={styles.sportPill}>
-            <Ionicons name="body" size={14} color="#E2E8F0" />
-            <Text style={styles.sportText}>Gymnasium</Text>
+            <Ionicons name="football-outline" size={14} color="#E2E8F0" />
+            <Text style={styles.sportText}>Sports Ground</Text>
           </View>
         </View>
       </Animated.View>
