@@ -2,7 +2,7 @@ import { APP_STRINGS } from '../constants/strings';
 import { User } from '../types';
 import { isValidPoornimaEmail } from '../utils/validationUtils';
 import { INITIAL_GUARD_USER, INITIAL_STUDENT_USER, INITIAL_USERS } from './mockDb';
-import { signInWithGoogleNative } from './supabase';
+import { signInWithGoogleNative, signInWithGoogleOAuth } from './supabase';
 
 /**
  * Deterministic id from an email address. Same email ALWAYS produces the
@@ -20,14 +20,24 @@ function stableIdFromEmail(email: string, prefix: string): string {
 
 export class AuthService {
   /**
-   * Real Supabase Google OAuth sign-in flow (native, no browser)
+   * Real Google OAuth sign-in flow (Native Google Play Services with OAuth Browser fallback)
    */
   static async signInWithGoogle(): Promise<{ user: User }> {
     try {
       const { user } = await signInWithGoogleNative();
       return { user };
     } catch (err: any) {
-      throw err;
+      // If user cancelled, don't fallback, just rethrow
+      if (err.message && (err.message.includes('cancelled') || err.message.includes('dismissed') || err.code === '12501')) {
+        throw err;
+      }
+      console.warn('Native Google Sign-In not available or failed, falling back to OAuth:', err?.message);
+      try {
+        const { user } = await signInWithGoogleOAuth();
+        return { user };
+      } catch (oauthErr: any) {
+        throw oauthErr || err;
+      }
     }
   }
 

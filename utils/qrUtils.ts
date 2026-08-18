@@ -1,23 +1,11 @@
 import { QRData, ScanResultType, StayExtension } from '../types';
 import { getRemainingTime } from './dateUtils';
 
+export const GUARD_SITE_URL =
+  process.env.EXPO_PUBLIC_GUARD_SITE_URL || 'https://sportsforall-guard.vercel.app';
+
 export function encodeQRPayload(extension: StayExtension): string {
-  const qrData: QRData = {
-    version: '1.0',
-    passId: extension.id,
-    studentId: extension.studentId,
-    studentName: extension.studentName,
-    enrollment: extension.studentEnrollment,
-    studentYear: extension.studentYear,
-    department: extension.department,
-    duration: extension.duration,
-    transactionId: extension.transactionId,
-    validFrom: extension.validFrom,
-    validUntil: extension.validUntil,
-    createdAt: extension.createdAt,
-    signature: `PU-SIG-${extension.transactionId.slice(-4)}`,
-  };
-  return JSON.stringify(qrData);
+  return `${GUARD_SITE_URL}/?pass=${extension.id}`;
 }
 
 export function decodeAndVerifyQRPayload(rawText: string): {

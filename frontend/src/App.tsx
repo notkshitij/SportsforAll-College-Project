@@ -67,7 +67,20 @@ export function App() {
   const handleVerify = async (rawInput: string) => {
     setIsLoading(true);
     try {
-      const res = await VerificationService.verifyCodeOrId(rawInput);
+      let queryInput = rawInput.trim();
+      if (queryInput.includes('?pass=') || queryInput.includes('&pass=')) {
+        try {
+          const parsedUrl = new URL(queryInput, window.location.origin);
+          const passFromUrl = parsedUrl.searchParams.get('pass');
+          if (passFromUrl) {
+            queryInput = passFromUrl;
+          }
+        } catch {
+          // Ignore URL parse error and fallback to raw string
+        }
+      }
+
+      const res = await VerificationService.verifyCodeOrId(queryInput);
       setActiveResult(res);
       setIsModalOpen(true);
 
@@ -112,6 +125,16 @@ export function App() {
       setIsLoading(false);
     }
   };
+
+  // Auto-verify pass on page load if ?pass= query parameter is present in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const passId = params.get('pass');
+    if (passId) {
+      handleVerify(passId);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Approve student entry
   const handleApproveEntry = async (pass: StayExtension) => {
