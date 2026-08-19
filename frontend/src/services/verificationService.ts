@@ -78,7 +78,7 @@ export class VerificationService {
     if (cleanInput.includes('booking_id=') && cleanInput.includes('sig=')) {
       const secureResult = decodeAndVerifySecureQRPayload(cleanInput);
       const bookingId = secureResult.bookingId || '';
-      qrType = secureResult.type;
+      qrType = secureResult.type || 'entry';
 
       // Query database for this real booking record
       targetPass = await this.querySupabasePass(bookingId, bookingId, '');
