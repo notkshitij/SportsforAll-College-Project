@@ -33,7 +33,9 @@ export interface StayExtension {
   createdAt: string;
   validFrom: string; // ISO string — today 4:00 PM
   validUntil: string; // ISO string — today 8:00 PM
-  status: 'valid' | 'expired' | 'CheckedIn' | 'CheckedOut';
+  status: 'valid' | 'expired' | 'CheckedIn' | 'CheckedOut' | 'Failed';
+  verifiedBy?: string;
+  verifiedAt?: string;
 }
 
 export interface QRData {
