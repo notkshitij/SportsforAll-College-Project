@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Platform } from 'react-native';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { User } from '../types';
 import { isValidPoornimaEmail } from '../utils/validationUtils';
 
@@ -29,18 +28,34 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Configure native Google Sign-In (Android/iOS) once, on module load
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-  offlineAccess: false,
-});
+function getGoogleSignin() {
+  try {
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    return GoogleSignin;
+  } catch (e) {
+    return null;
+  }
+}
 
 /**
  * Native Google Sign-In (Android) -> exchanges idToken with Supabase.
- * No browser, no redirect URL needed.
+ * No browser, no redirect URL needed. Falls back to OAuth if native module unavailable.
  */
 export async function signInWithGoogleNative(): Promise<{ user: User }> {
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const GoogleSignin = getGoogleSignin();
+  if (!GoogleSignin) {
+    return signInWithGoogleOAuth();
+  }
+
+  try {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+      offlineAccess: false,
+    });
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  } catch (e) {
+    return signInWithGoogleOAuth();
+  }
 
   const signInResult: any = await GoogleSignin.signIn();
 
