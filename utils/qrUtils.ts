@@ -3,7 +3,7 @@ import { getRemainingTime } from './dateUtils';
 import { hmacSHA256 } from './cryptoUtils';
 
 export const GUARD_SITE_URL =
-  process.env.EXPO_PUBLIC_GUARD_SITE_URL || 'https://sportsforall-guard.vercel.app';
+  process.env.EXPO_PUBLIC_GUARD_SITE_URL || 'https://sportsforall-poornima.vercel.app';
 
 export const QR_SECRET_KEY =
   process.env.EXPO_PUBLIC_QR_SECRET_KEY || 'pu_sportsforall_secure_qr_secret_key_2026';
