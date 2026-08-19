@@ -36,11 +36,19 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
 
     async function fetchLatestPassStatus() {
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('pass_history')
           .select('*')
-          .or(`id.eq.${extension.id},transaction_id.eq.${extension.transactionId}`)
+          .eq('id', extension.id)
           .limit(1);
+
+        if (!data || data.length === 0) {
+          ({ data, error } = await supabase
+            .from('pass_history')
+            .select('*')
+            .eq('transaction_id', extension.transactionId)
+            .limit(1));
+        }
 
         if (!error && data && data.length > 0 && isMounted) {
           const row = data[0];
