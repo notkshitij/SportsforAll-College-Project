@@ -198,16 +198,30 @@ export class VerificationService {
     const verifiedAt = new Date().toISOString();
     const newStatus = type === 'entry' ? 'CheckedIn' : 'CheckedOut';
 
-    // Update directly in Supabase
-    const { data, error } = await supabase
+    // Update directly in Supabase (first try by ID, then fallback to transaction_id)
+    let res = await supabase
       .from('pass_history')
       .update({
         status: newStatus,
         verified_by: guardName,
         verified_at: verifiedAt,
       })
-      .or(`id.eq.${passId},transaction_id.eq.${passId}`)
+      .eq('id', passId)
       .select('*');
+
+    if (!res.data || res.data.length === 0) {
+      res = await supabase
+        .from('pass_history')
+        .update({
+          status: newStatus,
+          verified_by: guardName,
+          verified_at: verifiedAt,
+        })
+        .eq('transaction_id', passId)
+        .select('*');
+    }
+
+    const { data, error } = res;
 
     if (error) {
       console.warn('Supabase pass update error:', error.message);
