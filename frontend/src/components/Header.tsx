@@ -1,35 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Clock, Moon, Sun, UserCheck } from './icons';
-import { formatTime12h, isFacilityOperatingNow } from '../utils/dateUtils';
+import React from 'react';
+import { Moon, Sun } from './icons';
 import { APP_CONFIG } from '../constants/config';
 import './Header.css';
 
 interface HeaderProps {
-  guardName: string;
-  guardBadge: string;
-  onSwitchGuard: () => void;
   isDarkMode: boolean;
   onToggleTheme: () => void;
+  currentRoute?: 'scanner' | 'monthly';
+  onNavigate?: (route: 'scanner' | 'monthly') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  guardName,
-  guardBadge,
-  onSwitchGuard,
   isDarkMode,
   onToggleTheme,
+  currentRoute = 'scanner',
+  onNavigate,
 }) => {
-  const [timeStr, setTimeStr] = useState(formatTime12h(new Date()));
-  const [facilityStatus, setFacilityStatus] = useState(isFacilityOperatingNow());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeStr(formatTime12h(new Date()));
-      setFacilityStatus(isFacilityOperatingNow());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <header className="portal-header">
       {/* Brand & Logo */}
@@ -39,40 +25,22 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="brand-titles">
           <h1>
-            <span>🛡️ Guard Verification Portal</span>
+            <span>Sports Pass Verification</span>
           </h1>
-          <p>{APP_CONFIG.UNIVERSITY_NAME} • Main Sports Complex Gate</p>
+          <p>{APP_CONFIG.UNIVERSITY_NAME} • {APP_CONFIG.CAMPUS_NAME}</p>
         </div>
       </div>
 
-      {/* Clock & Facility Status */}
-      <div className="header-center-info">
-        <div className="time-chip">
-          <Clock size={16} color="var(--primary)" />
-          <span>{timeStr}</span>
-        </div>
-
-        <div className={`facility-status-chip ${facilityStatus.isOpen ? 'open' : 'closed'}`}>
-          <span className={`pulse-dot ${facilityStatus.isOpen ? 'valid' : 'warning'}`}></span>
-          <span>{facilityStatus.message}</span>
-        </div>
-      </div>
-
-      {/* Actions & Guard User Chip */}
+      {/* Header Actions */}
       <div className="header-actions">
-        <button
-          className="guard-profile-chip"
-          onClick={onSwitchGuard}
-          title="Click to change active guard officer or view login profile"
-        >
-          <div className="guard-avatar-icon">
-            <UserCheck size={16} />
-          </div>
-          <div className="guard-info-text">
-            <div className="guard-name">{guardName}</div>
-            <div className="guard-role">{guardBadge} • Active</div>
-          </div>
-        </button>
+        {onNavigate && (
+          <button
+            className="nav-route-btn"
+            onClick={() => onNavigate(currentRoute === 'monthly' ? 'scanner' : 'monthly')}
+          >
+            {currentRoute === 'monthly' ? 'Gate Scanner' : 'Monthly Records'}
+          </button>
+        )}
 
         <button
           className="theme-toggle-btn"
@@ -80,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
           title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label="Toggle Theme"
         >
-          {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </div>
     </header>

@@ -1,42 +1,62 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
-import { StatsBar } from './components/StatsBar';
-import { QRScanner } from './components/QRScanner';
-import { ManualLookup } from './components/ManualLookup';
-import { VerificationModal } from './components/VerificationModal';
-import { RecentScansList } from './components/RecentScansList';
-import { GuardAuthModal } from './components/GuardAuthModal';
+import { StudentPassVerificationCard } from './components/StudentPassVerificationCard';
+import { MonthlyReport } from './components/MonthlyReport';
+import { NotFound } from './components/NotFound';
 import { Toast, ToastMessage } from './components/Toast';
 import { VerificationService } from './services/verificationService';
 import { audioFeedback } from './services/audioService';
-import { ScanLog, StayExtension, VerificationResult } from './types';
+import { StayExtension, VerificationResult } from './types';
 import { APP_CONFIG } from './constants/config';
+import { QrCode, ShieldCheck, Clock } from './components/icons';
 import './App.css';
 
+type RouteType = 'scanner' | 'monthly' | 'not-found';
+
+function getRouteFromPath(pathname: string): RouteType {
+  const clean = pathname.toLowerCase().replace(/\/+$/, '');
+  if (clean === '' || clean === '/' || clean === '/index.html' || clean === '/scanner') {
+    return 'scanner';
+  }
+  if (clean === '/monthly') {
+    return 'monthly';
+  }
+  return 'not-found';
+}
+
 export function App() {
+  const [currentRoute, setCurrentRoute] = useState<RouteType>(() => {
+    return getRouteFromPath(window.location.pathname);
+  });
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('poornima_guard_theme') === 'dark';
   });
 
-  const [guardName, setGuardName] = useState(() => {
+  const [guardName] = useState(() => {
     return localStorage.getItem('poornima_guard_name') || APP_CONFIG.DEFAULT_GUARD.name;
   });
 
-  const [guardBadge, setGuardBadge] = useState(() => {
-    return localStorage.getItem('poornima_guard_badge') || APP_CONFIG.DEFAULT_GUARD.enrollment;
-  });
-
-  const [scans, setScans] = useState<ScanLog[]>([]);
   const [activeResult, setActiveResult] = useState<VerificationResult | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Load initial scans on mount
+  // Navigation handler
+  const handleNavigate = (route: RouteType) => {
+    setCurrentRoute(route);
+    const targetPath = route === 'monthly' ? '/monthly' : route === 'scanner' ? '/' : window.location.pathname;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+  };
+
+  // Handle browser back/forward navigation
   useEffect(() => {
-    const loadedScans = VerificationService.getRecentScans();
-    setScans(loadedScans);
+    const handlePopState = () => {
+      setCurrentRoute(getRouteFromPath(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Sync theme
@@ -50,14 +70,17 @@ export function App() {
     }
   }, [isDarkMode]);
 
-  // Add toast helper
-  const addToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
-    const id = `toast_${Date.now()}_${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  }, []);
+  // Toast notifications helper
+  const addToast = useCallback(
+    (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+      const id = `toast_${Date.now()}_${Math.random()}`;
+      setToasts((prev) => [...prev, { id, message, type }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    },
+    []
+  );
 
   const dismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -82,7 +105,7 @@ export function App() {
 
       const res = await VerificationService.verifyCodeOrId(queryInput);
       setActiveResult(res);
-      setIsModalOpen(true);
+      setCurrentRoute('scanner');
 
       // Play audio feedback
       if (res.scanResult === 'valid') {
@@ -95,29 +118,6 @@ export function App() {
         audioFeedback.playWarningBuzzer();
         addToast(`❌ Invalid / Flagged: ${res.errorReason || 'Access Denied'}`, 'error');
       }
-
-      // Log the scan
-      const newScanLog: ScanLog = {
-        id: `scan_${Date.now()}`,
-        guardId: guardBadge,
-        guardName: guardName,
-        studentId: res.pass.studentId,
-        studentName: res.pass.studentName,
-        enrollment: res.pass.studentEnrollment,
-        studentYear: res.pass.studentYear,
-        department: res.pass.department,
-        transactionId: res.pass.transactionId,
-        amount: res.pass.amount || 100,
-        validFrom: res.pass.validFrom,
-        validUntil: res.pass.validUntil,
-        scanResult: res.scanResult,
-        actionTaken: res.scanResult === 'valid' ? 'Approved' : 'Inspected',
-        reason: res.errorReason,
-        scannedAt: new Date().toISOString(),
-      };
-
-      VerificationService.saveScanLog(newScanLog);
-      setScans(VerificationService.getRecentScans());
     } catch (err: any) {
       audioFeedback.playWarningBuzzer();
       addToast(err.message || 'Pass not found.', 'error');
@@ -126,129 +126,86 @@ export function App() {
     }
   };
 
-  // Auto-verify pass on page load if pass or booking_id query parameters are present in URL
+  // Auto-verify pass on page load if query parameters are present in URL
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const passId = params.get('pass');
-    const bookingId = params.get('booking_id');
-    if (bookingId) {
+    const search = window.location.search;
+    if (search.includes('booking_id=') || search.includes('pass=')) {
       handleVerify(window.location.href);
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (passId) {
-      handleVerify(passId);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
-  // Approve student entry or exit
+  // Approve student entry
   const handleApproveEntry = async (pass: StayExtension) => {
     try {
       const type = activeResult?.qrType || 'entry';
       await VerificationService.approvePass(pass.id, guardName, type);
-      addToast(`🎉 ${type === 'entry' ? 'Entry' : 'Exit'} confirmed for ${pass.studentName}! Gate Opened.`, 'success');
-      setIsModalOpen(false);
-      // Refresh scans
-      setScans(VerificationService.getRecentScans());
+      audioFeedback.playSuccessChime();
+      addToast(`🎉 Entry Approved for ${pass.studentName}! Gate Opened.`, 'success');
     } catch (err: any) {
       addToast('Error confirming pass: ' + err.message, 'error');
     }
   };
 
-  // Flag student pass
-  const handleFlagPass = async (pass: StayExtension, reason: string) => {
-    try {
-      await VerificationService.flagPass(pass.id, guardName, reason);
-      addToast(`⚠️ Pass for ${pass.studentName} flagged and rejected.`, 'warning');
-      setIsModalOpen(false);
-      // Refresh scans
-      setScans(VerificationService.getRecentScans());
-    } catch (err: any) {
-      addToast('Error flagging pass: ' + err.message, 'error');
-    }
-  };
-
-  // Switch active guard officer
-  const handleSelectGuard = (name: string, badge: string) => {
-    setGuardName(name);
-    setGuardBadge(badge);
-    localStorage.setItem('poornima_guard_name', name);
-    localStorage.setItem('poornima_guard_badge', badge);
-    addToast(`Active officer switched to ${name}`, 'info');
-  };
-
-  // Clear scans
-  const handleClearScans = () => {
-    if (window.confirm('Are you sure you want to clear the local verification history?')) {
-      localStorage.removeItem('poornima_guard_recent_scans_v2');
-      setScans([]);
-      addToast('Scan log history cleared.', 'info');
-    }
-  };
-
-  // Re-open scan details from table
-  const handleSelectScanFromTable = (scan: ScanLog) => {
-    handleVerify(scan.transactionId || scan.enrollment || scan.studentName);
-  };
-
   return (
     <div className="app-container">
-      {/* Header */}
+      {/* Top Header */}
       <Header
-        guardName={guardName}
-        guardBadge={guardBadge}
-        onSwitchGuard={() => setIsAuthModalOpen(true)}
         isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+        currentRoute={currentRoute === 'monthly' ? 'monthly' : 'scanner'}
+        onNavigate={(r) => handleNavigate(r)}
       />
 
-      {/* Top Statistics Bar */}
-      <StatsBar scans={scans} />
-
-      {/* Main Grid: Scanner & Manual Search */}
-      <div className="portal-main-grid">
-        <div className="scanner-column">
-          <QRScanner
-            onScanSuccess={(qrData) => handleVerify(qrData)}
-            onError={(msg) => addToast(msg, 'error')}
+      {/* Main Content Area */}
+      <main className="verification-main-content">
+        {currentRoute === 'not-found' ? (
+          /* 404 Page Not Found */
+          <NotFound onGoHome={() => handleNavigate('scanner')} />
+        ) : currentRoute === 'monthly' ? (
+          /* Monthly Records Tabular View */
+          <MonthlyReport onBackToScanner={() => handleNavigate('scanner')} />
+        ) : isLoading ? (
+          /* Loading State */
+          <div className="standby-card">
+            <div className="loading-spinner"></div>
+            <h3>Verifying Student Pass...</h3>
+            <p>Fetching official payment and stay records from Poornima University server</p>
+          </div>
+        ) : activeResult ? (
+          /* Student Pass Fee Receipt & Verification Details */
+          <StudentPassVerificationCard
+            result={activeResult}
+            onApprove={handleApproveEntry}
           />
-        </div>
-
-        <div className="info-column">
-          <ManualLookup onVerify={handleVerify} isLoading={isLoading} />
-        </div>
-      </div>
-
-      {/* Full Verification History & Audit Log */}
-      <RecentScansList
-        scans={scans}
-        onSelectScan={handleSelectScanFromTable}
-        onClearScans={handleClearScans}
-      />
+        ) : (
+          /* Clean Standby State (Waiting for scan from any camera/scanner) */
+          <div className="standby-card">
+            <div className="standby-icon-box">
+              <QrCode size={48} color="var(--primary)" />
+            </div>
+            <h2>Scan Student QR Code</h2>
+            <p className="standby-desc">
+              Scan the student's <strong>Sportsforall Digital QR Pass</strong> using any camera or scanner app to view complete fee receipt details & approve facility access.
+            </p>
+            <div className="standby-info-row">
+              <div className="standby-chip">
+                <Clock size={16} color="var(--primary)" />
+                <span>Operating Hours: 4:00 PM – 8:00 PM</span>
+              </div>
+              <div className="standby-chip">
+                <ShieldCheck size={16} color="var(--success)" />
+                <span>Live Database Verification</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
 
       {/* Footer */}
       <footer className="portal-footer">
-        <p>
-          © {new Date().getFullYear()} {APP_CONFIG.UNIVERSITY_NAME} • Campus Security & Sports Pass
-          Verification System
-        </p>
+        <p>Developed by Manvendra Singh & Kshitij Jain</p>
       </footer>
-
-      {/* Student Verification Pass Modal */}
-      <VerificationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        result={activeResult}
-        onApprove={handleApproveEntry}
-        onFlag={handleFlagPass}
-      />
-
-      {/* Guard Authentication / Switch Modal */}
-      <GuardAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        currentGuardName={guardName}
-        onSelectGuard={handleSelectGuard}
-      />
 
       {/* Toast Notifications */}
       <Toast toasts={toasts} onDismiss={dismissToast} />

@@ -1,34 +1,31 @@
 .portal-header {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 16px auto;
+  background: var(--background);
+  border: none;
   border-radius: var(--radius-xl);
-  padding: 16px 24px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-md);
+  padding: 14px 24px;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .header-brand-group {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .portal-logo-container {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
-  background: #FFFFFF;
-  padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
-  border: 1px solid var(--border);
 }
 
 .portal-logo-img {
@@ -38,121 +35,53 @@
 }
 
 .brand-titles h1 {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 800;
-  color: var(--primary-dark);
-  letter-spacing: -0.3px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.brand-titles p {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.header-center-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.time-chip {
+  color: var(--primary);
+  letter-spacing: -0.2px;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--background-subtle);
-  border: 1px solid var(--border);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  font-size: 0.85rem;
+}
+
+.brand-titles p {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
   font-weight: 600;
-  color: var(--text-main);
-}
-
-.facility-status-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.facility-status-chip.open {
-  background: var(--success-light);
-  color: var(--success-dark);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.facility-status-chip.closed {
-  background: var(--warning-light);
-  color: var(--warning-dark);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  margin: 2px 0 0 0;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.guard-profile-chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--primary-light);
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  padding: 6px 14px;
+.nav-route-btn {
+  background: var(--background-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 8px 14px;
   border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
-.guard-profile-chip:hover {
-  background: #C7D2FE;
-  transform: translateY(-1px);
-}
-
-.guard-avatar-icon {
-  width: 28px;
-  height: 28px;
+.nav-route-btn:hover {
   background: var(--primary);
   color: #FFFFFF;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.guard-info-text {
-  text-align: left;
-  line-height: 1.15;
-}
-
-.guard-info-text .guard-name {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--primary-dark);
-}
-
-.guard-info-text .guard-role {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
+  border-color: var(--primary);
 }
 
 .theme-toggle-btn {
   background: var(--background-subtle);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -164,17 +93,21 @@
 .theme-toggle-btn:hover {
   background: var(--border);
   color: var(--text-main);
+  transform: scale(1.05);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 600px) {
   .portal-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 16px;
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
   }
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
+
+  .brand-titles h1 {
+    font-size: 1.05rem;
+  }
+
+  .portal-logo-container {
+    width: 40px;
+    height: 40px;
   }
 }
