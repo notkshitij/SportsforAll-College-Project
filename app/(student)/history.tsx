@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -38,6 +40,24 @@ export default function HistoryScreen() {
   const [filterTab, setFilterTab] = useState<'all' | 'valid' | 'expired'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const isFocused = useIsFocused();
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.98);
+
+  React.useEffect(() => {
+    if (isFocused) {
+      opacity.value = 0;
+      scale.value = 0.98;
+      opacity.value = withTiming(1, { duration: 300 });
+      scale.value = withTiming(1, { duration: 300 });
+    }
+  }, [isFocused]);
+
+  const animatedPageStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   const filteredPasses = studentPasses.filter((pass) => {
     if (filterTab === 'valid' && pass.status !== 'valid') return false;
@@ -112,8 +132,8 @@ export default function HistoryScreen() {
                 {item.duration > 1 ? 's' : ''} Stay
               </Text>
               <Badge
-                label={isValid ? 'PAID / VALID' : 'EXPIRED'}
-                variant={isValid ? 'valid' : 'expired'}
+                label={item.status === 'CheckedIn' ? 'CHECKED IN' : item.status === 'CheckedOut' ? 'CHECKED OUT' : isValid ? 'PAID / VALID' : 'EXPIRED'}
+                variant={item.status === 'CheckedIn' ? 'info' : item.status === 'CheckedOut' ? 'primary' : isValid ? 'valid' : 'expired'}
                 size="sm"
               />
             </View>
@@ -180,6 +200,7 @@ export default function HistoryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Animated.View style={[animatedPageStyle, { flex: 1 }]}>
       <Header
         title="Pass History"
         subtitle="All Past Passes & Payments"
@@ -299,6 +320,7 @@ export default function HistoryScreen() {
           </View>
         }
       />
+      </Animated.View>
     </View>
   );
 }

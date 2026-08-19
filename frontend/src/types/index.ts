@@ -35,7 +35,7 @@ export interface StayExtension {
   createdAt: string;
   validFrom: string; // ISO string
   validUntil: string; // ISO string
-  status: 'valid' | 'expired' | 'Pending' | 'Verified' | 'Failed';
+  status: 'valid' | 'expired' | 'Pending' | 'Verified' | 'Failed' | 'CheckedIn' | 'CheckedOut';
   verifiedBy?: string;
   verifiedAt?: string;
   flagReason?: string;
@@ -85,4 +85,8 @@ export interface VerificationResult {
   errorReason?: string;
   remainingFormatted?: string;
   isFacilityOpenNow: boolean;
+  qrType?: 'entry' | 'exit';
+  signatureValid?: boolean;
+  qrExpired?: boolean;
 }
+

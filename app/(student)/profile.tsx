@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
@@ -37,6 +39,24 @@ export default function StudentProfileScreen() {
   const [phone, setPhone] = useState(studentUser.phone || '');
   const [isSaving, setIsSaving] = useState(false);
   const [tick, setTick] = useState(0);
+
+  const isFocused = useIsFocused();
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.98);
+
+  useEffect(() => {
+    if (isFocused) {
+      opacity.value = 0;
+      scale.value = 0.98;
+      opacity.value = withTiming(1, { duration: 300 });
+      scale.value = withTiming(1, { duration: 300 });
+    }
+  }, [isFocused]);
+
+  const animatedPageStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   // Refresh pass statuses when screen comes into focus
   useFocusEffect(
@@ -137,6 +157,7 @@ export default function StudentProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Animated.View style={[animatedPageStyle, { flex: 1 }]}>
       <Header
         title="My Profile"
         subtitle="Student Sports Membership"
@@ -378,6 +399,7 @@ export default function StudentProfileScreen() {
           />
         </View>
       </Modal>
+      </Animated.View>
     </View>
   );
 }

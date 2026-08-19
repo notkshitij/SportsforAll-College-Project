@@ -31,6 +31,10 @@ export class AuthService {
       if (err.message && (err.message.includes('cancelled') || err.message.includes('dismissed') || err.code === '12501')) {
         throw err;
       }
+      // If native login was successful but email domain restriction blocked access, throw immediately
+      if (err.message && err.message.includes('Access Restricted')) {
+        throw err;
+      }
       console.warn('Native Google Sign-In not available or failed, falling back to OAuth:', err?.message);
       try {
         const { user } = await signInWithGoogleOAuth();

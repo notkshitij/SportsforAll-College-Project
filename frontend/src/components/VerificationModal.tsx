@@ -73,28 +73,40 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
         {/* Status Header Banner */}
         <div
           className={`modal-status-banner ${
-            isValid ? 'valid' : isExpired ? 'expired' : 'invalid'
+            !result.signatureValid ? 'invalid' : result.qrExpired ? 'expired' : isValid ? 'valid' : 'invalid'
           }`}
         >
           <div className="modal-status-icon-box">
-            {isValid ? (
+            {!result.signatureValid ? (
+              <XCircle size={32} />
+            ) : result.qrExpired ? (
+              <Clock size={32} />
+            ) : isValid ? (
               <CheckCircle2 size={32} />
-            ) : isExpired ? (
-              <AlertTriangle size={32} />
             ) : (
               <XCircle size={32} />
             )}
           </div>
           <div className="modal-status-title">
-            {isValid
-              ? 'VALID DIGITAL SPORTS PASS'
-              : isExpired
-              ? 'EXPIRED / INVALID PASS'
-              : 'FORGED / UNRECOGNIZED PASS'}
+            {!result.signatureValid
+              ? 'SECURITY ALERT: FORGED QR CODE'
+              : result.qrExpired
+              ? 'SECURITY ALERT: EXPIRED DYNAMIC QR'
+              : isValid
+              ? result.qrType === 'exit'
+                ? 'VALID SPORTS EXIT PASS'
+                : 'VALID SPORTS ENTRY PASS'
+              : 'INVALID ACCESS PASS'}
           </div>
           <div className="modal-status-subtitle">
-            {isValid
-              ? 'Student is fully authorized to access Poornima Sports Complex'
+            {!result.signatureValid
+              ? 'Cryptographic signature mismatch! This QR code has been forged or tampered.'
+              : result.qrExpired
+              ? 'This dynamic QR code has expired. Screenshots are rejected. Ask the student for a fresh QR code.'
+              : isValid
+              ? result.qrType === 'exit'
+                ? 'Student is authorized to EXIT the sports complex'
+                : 'Student is authorized to ENTER the sports complex'
               : errorReason || 'Access to Sports Facility is Denied'}
           </div>
         </div>
@@ -125,6 +137,14 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
               <span>Sports Complex Stay Window</span>
             </h4>
             <div className="info-rows-list">
+              {result.qrType && (
+                <div className="info-row-item">
+                  <span className="info-row-label">Checkpoint Check Type</span>
+                  <span className="info-row-value" style={{ color: '#2563eb', fontWeight: '800', textTransform: 'uppercase' }}>
+                    {result.qrType} PASS
+                  </span>
+                </div>
+              )}
               <div className="info-row-item">
                 <span className="info-row-label">Operating Window</span>
                 <span className="info-row-value">
@@ -141,10 +161,10 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
                 <span className="info-row-label">Current Validity Status</span>
                 <span
                   className={`info-row-value ${
-                    isValid ? 'highlight-green' : isExpired ? 'highlight-amber' : 'highlight-red'
+                    isValid && !result.qrExpired ? 'highlight-green' : result.qrExpired ? 'highlight-amber' : 'highlight-red'
                   }`}
                 >
-                  {isValid ? `Active (${remainingFormatted})` : remainingFormatted || 'Invalid'}
+                  {isValid && !result.qrExpired ? `Active (${remainingFormatted})` : result.qrExpired ? 'QR Code Expired' : remainingFormatted || 'Invalid'}
                 </span>
               </div>
             </div>
@@ -175,8 +195,8 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
               </div>
               <div className="info-row-item">
                 <span className="info-row-label">Digital Pass Signature</span>
-                <span className="info-row-value" style={{ fontFamily: 'monospace' }}>
-                  PU-SIG-{pass.transactionId.slice(-4)}
+                <span className="info-row-value" style={{ fontFamily: 'monospace', color: result.signatureValid ? '#16a34a' : '#dc2626' }}>
+                  {result.signatureValid ? '✓ VERIFIED SIGNATURE' : '✗ INVALID SIGNATURE'}
                 </span>
               </div>
             </div>
@@ -216,7 +236,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
             {isValid ? (
               <button className="btn btn-success btn-lg" onClick={handleApproveClick}>
                 <CheckCircle2 size={20} />
-                <span>✓ Grant Entry (Authorized)</span>
+                <span>✓ Confirm {result.qrType === 'exit' ? 'Exit' : 'Entry'} & Use Ticket</span>
               </button>
             ) : (
               <button
@@ -224,7 +244,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
                 onClick={() => setFlagInputVisible(true)}
               >
                 <XCircle size={20} />
-                <span>Deny Entry & Alert</span>
+                <span>Deny Gate Access & Alert</span>
               </button>
             )}
 

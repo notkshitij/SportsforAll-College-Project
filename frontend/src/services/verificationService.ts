@@ -2,6 +2,7 @@ import { INITIAL_MOCK_PASSES, getTodayWindowDates } from '../constants/mockData'
 import { ScanLog, ScanResultType, StayExtension, VerificationResult } from '../types';
 import { getRemainingTime } from '../utils/dateUtils';
 import { supabase } from './supabaseClient';
+import { decodeAndVerifySecureQRPayload } from '../utils/qrUtils';
 
 const LOCAL_STORAGE_SCANS_KEY = 'poornima_guard_recent_scans_v2';
 const LOCAL_STORAGE_PASSES_KEY = 'poornima_guard_local_passes_v2';
@@ -67,15 +68,97 @@ export class VerificationService {
       throw new Error('Input is empty.');
     }
 
-    // Try parsing as JSON QR payload first
+    let targetPass: StayExtension | null = null;
+
+    // Handle secure cryptographically signed QR codes (containing booking_id and sig in query params)
+    if (cleanInput.includes('booking_id=') && cleanInput.includes('sig=')) {
+      const secureResult = decodeAndVerifySecureQRPayload(cleanInput);
+      const bookingId = secureResult.bookingId || '';
+
+      // Try fetching from Supabase first
+      targetPass = await this.querySupabasePass(bookingId, bookingId, '');
+
+      // If not in Supabase, check local mock passes
+      if (!targetPass) {
+        const localPasses = this.getLocalPasses();
+        const foundLocal = localPasses.find((p) => p.id === bookingId);
+        if (foundLocal) {
+          targetPass = { ...foundLocal };
+        }
+      }
+
+      // If still not found, construct a temporary pass so guard can see information
+      if (!targetPass) {
+        const { validFrom, validUntil } = getTodayWindowDates();
+        targetPass = {
+          id: bookingId || 'pass_unknown',
+          studentId: 'stu_unknown',
+          studentName: 'Unknown/Unsynced Student',
+          studentEnrollment: 'N/A',
+          studentYear: '',
+          email: 'unknown@poornima.edu.in',
+          department: 'Unknown Dept',
+          duration: 4,
+          reason: 'Sports Pass Access',
+          amount: 100,
+          transactionId: bookingId || 'N/A',
+          paymentMethod: 'UPI',
+          qrCode: cleanInput,
+          createdAt: new Date().toISOString(),
+          validFrom,
+          validUntil: secureResult.exp ? new Date(secureResult.exp).toISOString() : validUntil,
+          status: 'Failed',
+        };
+      }
+
+      const signatureValid = secureResult.scanResult !== 'invalid' || !secureResult.errorReason?.includes('signature mismatch');
+      const qrExpired = secureResult.scanResult === 'expired';
+
+      let scanResult: ScanResultType = secureResult.scanResult;
+      let errorReason = secureResult.errorReason;
+
+      if (!signatureValid) {
+        scanResult = 'invalid';
+        errorReason = secureResult.errorReason || 'SECURITY ALERT: Forged QR signature detected!';
+      } else if (qrExpired) {
+        scanResult = 'expired';
+        errorReason = secureResult.errorReason || 'SECURITY ALERT: QR Code expired!';
+      } else {
+        // If QR signature is valid and QR has not expired, verify the database entry pass status itself
+        const { isExpired, formatted } = getRemainingTime(targetPass.validUntil);
+        if (targetPass.status === 'Failed') {
+          scanResult = 'invalid';
+          errorReason = targetPass.flagReason || 'Pass has been flagged / rejected by security';
+        } else if (isExpired || targetPass.status === 'expired') {
+          scanResult = 'expired';
+          errorReason = `Pass validity has expired (${formatted})`;
+        } else {
+          scanResult = 'valid';
+        }
+      }
+
+      const { formatted } = getRemainingTime(targetPass.validUntil);
+
+      return {
+        scanResult,
+        isValidFormat: true,
+        pass: targetPass,
+        errorReason,
+        remainingFormatted: formatted,
+        isFacilityOpenNow: true,
+        qrType: secureResult.type,
+        signatureValid,
+        qrExpired,
+      };
+    }
+
+    // Try parsing as JSON QR payload first (for legacy JSON format QRs)
     let parsedQr: any = null;
     try {
       parsedQr = JSON.parse(cleanInput);
     } catch {
       // Not JSON, could be a Txn ID, Pass ID, or Enrollment ID
     }
-
-    let targetPass: StayExtension | null = null;
 
     // 1. If parsed JSON has valid student info:
     if (parsedQr && (parsedQr.transactionId || parsedQr.studentId || parsedQr.passId)) {
@@ -142,6 +225,12 @@ export class VerificationService {
     if (targetPass.status === 'Failed') {
       scanResult = 'invalid';
       errorReason = targetPass.flagReason || 'Pass has been flagged / rejected by security';
+    } else if (targetPass.status === 'CheckedIn') {
+      scanResult = 'invalid';
+      errorReason = 'ACCESS DENIED: Pass already used for entry! Student is inside.';
+    } else if (targetPass.status === 'CheckedOut') {
+      scanResult = 'invalid';
+      errorReason = 'ACCESS DENIED: Pass already completed / checked out!';
     } else if (isExpired || targetPass.status === 'expired') {
       scanResult = 'expired';
       errorReason = `Pass has expired (${formatted})`;
@@ -156,8 +245,12 @@ export class VerificationService {
       errorReason,
       remainingFormatted: formatted,
       isFacilityOpenNow: true,
+      qrType: 'entry',
+      signatureValid: true,
+      qrExpired: false,
     };
   }
+
 
   /**
    * Look up pass in Supabase `pass_history` table
@@ -208,10 +301,11 @@ export class VerificationService {
   }
 
   /**
-   * Approve student pass entry
+   * Approve student pass entry or exit
    */
-  static async approvePass(passId: string, guardName: string): Promise<StayExtension> {
+  static async approvePass(passId: string, guardName: string, type: 'entry' | 'exit' = 'entry'): Promise<StayExtension> {
     const verifiedAt = new Date().toISOString();
+    const newStatus = type === 'entry' ? 'CheckedIn' : 'CheckedOut';
 
     // 1. Update in local passes
     const passes = this.getLocalPasses();
@@ -221,7 +315,7 @@ export class VerificationService {
     if (index !== -1) {
       passes[index] = {
         ...passes[index],
-        status: 'valid',
+        status: newStatus,
         verifiedBy: guardName,
         verifiedAt,
       };
@@ -243,7 +337,7 @@ export class VerificationService {
         createdAt: verifiedAt,
         validFrom: verifiedAt,
         validUntil: verifiedAt,
-        status: 'valid',
+        status: newStatus,
         verifiedBy: guardName,
         verifiedAt,
         email: 'student@poornima.edu.in',
@@ -254,7 +348,7 @@ export class VerificationService {
     supabase
       .from('pass_history')
       .update({
-        status: 'valid',
+        status: newStatus,
         verified_by: guardName,
         verified_at: verifiedAt,
       })

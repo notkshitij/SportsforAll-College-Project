@@ -10,12 +10,19 @@ export class StayExtensionService {
     let hasChanged = false;
     const updated = extensions.map((ext) => {
       const { isExpired } = getRemainingTime(ext.validUntil);
-      const newStatus = isExpired ? 'expired' : 'valid';
+      let newStatus = ext.status;
+      
+      if (isExpired) {
+        newStatus = 'expired';
+      } else if (ext.status !== 'CheckedIn' && ext.status !== 'CheckedOut') {
+        newStatus = 'valid';
+      }
+
       if (ext.status !== newStatus) {
         hasChanged = true;
         return {
           ...ext,
-          status: newStatus as 'valid' | 'expired',
+          status: newStatus,
         };
       }
       return ext;

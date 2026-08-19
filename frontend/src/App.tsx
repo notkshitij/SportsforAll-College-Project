@@ -126,26 +126,31 @@ export function App() {
     }
   };
 
-  // Auto-verify pass on page load if ?pass= query parameter is present in URL
+  // Auto-verify pass on page load if pass or booking_id query parameters are present in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const passId = params.get('pass');
-    if (passId) {
+    const bookingId = params.get('booking_id');
+    if (bookingId) {
+      handleVerify(window.location.href);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (passId) {
       handleVerify(passId);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
-  // Approve student entry
+  // Approve student entry or exit
   const handleApproveEntry = async (pass: StayExtension) => {
     try {
-      await VerificationService.approvePass(pass.id, guardName);
-      addToast(`🎉 Entry granted for ${pass.studentName}! Gate Opened.`, 'success');
+      const type = activeResult?.qrType || 'entry';
+      await VerificationService.approvePass(pass.id, guardName, type);
+      addToast(`🎉 ${type === 'entry' ? 'Entry' : 'Exit'} confirmed for ${pass.studentName}! Gate Opened.`, 'success');
       setIsModalOpen(false);
       // Refresh scans
       setScans(VerificationService.getRecentScans());
     } catch (err: any) {
-      addToast('Error approving pass: ' + err.message, 'error');
+      addToast('Error confirming pass: ' + err.message, 'error');
     }
   };
 

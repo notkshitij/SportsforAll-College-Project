@@ -11,6 +11,7 @@ export class QRService {
    * Share receipt text / summary via WhatsApp, Email, or system share sheet
    */
   static async shareReceiptText(extension: StayExtension): Promise<boolean> {
+    /*
     const receiptId = generateReceiptId(new Date(extension.createdAt));
     const validUntilTime = formatTime12h(extension.validUntil);
     const dateFormatted = formatDateTimeNice(extension.createdAt);
@@ -55,6 +56,8 @@ export class QRService {
       console.warn('Share error:', err);
       return false;
     }
+    */
+    return false;
   }
 
   /**

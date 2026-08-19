@@ -35,6 +35,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
   const receiptId = generateReceiptId(new Date(extension.createdAt));
   const isExpired = extension.status === 'expired';
 
+  /*
   const handleShare = async () => {
     setIsSharing(true);
     try {
@@ -43,6 +44,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
       setIsSharing(false);
     }
   };
+  */
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -199,6 +201,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <View style={styles.actionRow}>
+          {/* Commented Out Sharing button
           <TouchableOpacity
             onPress={handleShare}
             disabled={isSharing}
@@ -216,6 +219,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
               </>
             )}
           </TouchableOpacity>
+          */}
 
           <TouchableOpacity
             onPress={handleDownloadPdf}
