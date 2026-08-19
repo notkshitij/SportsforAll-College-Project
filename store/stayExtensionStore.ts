@@ -44,6 +44,7 @@ interface StayExtensionState {
     remainingFormatted?: string;
   };
   setLastCreatedPass: (pass: StayExtension | null) => void;
+  updatePassStatus: (passId: string, status: StayExtension['status']) => void;
   clearLastScanResult: () => void;
   resetToDefaults: () => void;
 }
@@ -122,6 +123,29 @@ export const useStayExtensionStore = create<StayExtensionState>()(
 
       setLastCreatedPass: (pass: StayExtension | null) => {
         set({ lastCreatedPass: pass });
+      },
+
+      updatePassStatus: (passId: string, status: StayExtension['status']) => {
+        set((state) => {
+          const updatedExtensions = state.extensions.map((e) =>
+            e.id === passId || e.transactionId === passId ? { ...e, status } : e
+          );
+          const updatedActive =
+            state.activePass && (state.activePass.id === passId || state.activePass.transactionId === passId)
+              ? { ...state.activePass, status }
+              : state.activePass;
+          const updatedLast =
+            state.lastCreatedPass &&
+            (state.lastCreatedPass.id === passId || state.lastCreatedPass.transactionId === passId)
+              ? { ...state.lastCreatedPass, status }
+              : state.lastCreatedPass;
+
+          return {
+            extensions: updatedExtensions,
+            activePass: updatedActive,
+            lastCreatedPass: updatedLast,
+          };
+        });
       },
 
       clearLastScanResult: () => {

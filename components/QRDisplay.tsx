@@ -39,16 +39,22 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
         const { data, error } = await supabase
           .from('pass_history')
           .select('*')
-          .eq('id', extension.id)
-          .single();
+          .or(`id.eq.${extension.id},transaction_id.eq.${extension.transactionId}`)
+          .limit(1);
 
-        if (!error && data && isMounted) {
-          setCurrentPass((prev) => ({
-            ...prev,
-            status: data.status,
-            verifiedBy: data.verified_by || prev.verifiedBy,
-            verifiedAt: data.verified_at || prev.verifiedAt,
-          }));
+        if (!error && data && data.length > 0 && isMounted) {
+          const row = data[0];
+          setCurrentPass((prev) => {
+            if (prev.status !== row.status) {
+              useStayExtensionStore.getState().updatePassStatus(extension.id, row.status);
+            }
+            return {
+              ...prev,
+              status: row.status,
+              verifiedBy: row.verified_by || prev.verifiedBy,
+              verifiedAt: row.verified_at || prev.verifiedAt,
+            };
+          });
         }
       } catch (err) {
         // Fallback quiet
@@ -57,8 +63,8 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
 
     fetchLatestPassStatus();
 
-    // Poll every 2 seconds for instant reactive UI updates upon guard scan
-    const pollInterval = setInterval(fetchLatestPassStatus, 2000);
+    // Poll every 1.5 seconds for snappy real-time UI updates
+    const pollInterval = setInterval(fetchLatestPassStatus, 1500);
 
     // Postgres change listener
     const channel = supabase
@@ -69,10 +75,14 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
           event: 'UPDATE',
           schema: 'public',
           table: 'pass_history',
-          filter: `id=eq.${extension.id}`,
         },
         (payload: any) => {
-          if (payload?.new && isMounted) {
+          if (
+            payload?.new &&
+            (payload.new.id === extension.id || payload.new.transaction_id === extension.transactionId) &&
+            isMounted
+          ) {
+            useStayExtensionStore.getState().updatePassStatus(extension.id, payload.new.status);
             setCurrentPass((prev) => ({
               ...prev,
               status: payload.new.status,
@@ -89,7 +99,7 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
       clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
-  }, [extension.id]);
+  }, [extension.id, extension.transactionId]);
 
   // Real-time ticking timer for countdown
   useEffect(() => {

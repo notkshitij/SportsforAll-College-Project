@@ -206,7 +206,7 @@ export class VerificationService {
         verified_by: guardName,
         verified_at: verifiedAt,
       })
-      .eq('id', passId)
+      .or(`id.eq.${passId},transaction_id.eq.${passId}`)
       .select('*');
 
     if (error) {
