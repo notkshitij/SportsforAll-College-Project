@@ -135,13 +135,19 @@ export function App() {
     }
   }, []);
 
-  // Approve student entry
+  // Approve student entry or exit
   const handleApproveEntry = async (pass: StayExtension) => {
     try {
       const type = activeResult?.qrType || 'entry';
       await VerificationService.approvePass(pass.id, guardName, type);
       audioFeedback.playSuccessChime();
-      addToast(`🎉 Entry Approved for ${pass.studentName}! Gate Opened.`, 'success');
+      const isExit = type === 'exit';
+      addToast(
+        isExit
+          ? `🎉 Exit Approved for ${pass.studentName}! Check-out recorded.`
+          : `🎉 Entry Approved for ${pass.studentName}! Gate Opened.`,
+        'success'
+      );
     } catch (err: any) {
       addToast('Error confirming pass: ' + err.message, 'error');
     }

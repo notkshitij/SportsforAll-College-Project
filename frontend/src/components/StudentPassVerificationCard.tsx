@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   XCircle,
   Clock,
   ShieldCheck,
-  User,
-  CreditCard,
-  QrCode,
   Check,
 } from './icons';
 import confetti from 'canvas-confetti';
@@ -24,12 +21,24 @@ export const StudentPassVerificationCard: React.FC<StudentPassVerificationCardPr
   result,
   onApprove,
 }) => {
-  const [isApproving, setIsApproving] = useState(false);
-  const [isApproved, setIsApproved] = useState(
-    result.pass.status === 'CheckedIn' || result.pass.status === 'CheckedOut'
-  );
+  const { pass, scanResult, remainingFormatted, errorReason, signatureValid, qrExpired, qrType = 'entry' } = result;
 
-  const { pass, scanResult, remainingFormatted, errorReason, signatureValid, qrExpired } = result;
+  const isExit = qrType === 'exit';
+
+  // For exit QR, approved only when CheckedOut. For entry QR, approved when CheckedIn or CheckedOut.
+  const computeIsApproved = (status: string, type: 'entry' | 'exit') => {
+    if (type === 'exit') {
+      return status === 'CheckedOut';
+    }
+    return status === 'CheckedIn' || status === 'CheckedOut';
+  };
+
+  const [isApproving, setIsApproving] = useState(false);
+  const [isApproved, setIsApproved] = useState(computeIsApproved(pass.status, isExit ? 'exit' : 'entry'));
+
+  useEffect(() => {
+    setIsApproved(computeIsApproved(result.pass.status, result.qrType === 'exit' ? 'exit' : 'entry'));
+  }, [result]);
 
   const isValid = scanResult === 'valid' && signatureValid && !qrExpired;
   const isExpiredState = scanResult === 'expired' || qrExpired;
@@ -92,14 +101,24 @@ export const StudentPassVerificationCard: React.FC<StudentPassVerificationCardPr
                 : isExpiredState
                 ? 'EXPIRED SPORTS PASS'
                 : isApproved
-                ? 'ENTRY APPROVED & GATE OPENED'
+                ? isExit
+                  ? 'EXIT APPROVED • CHECKED OUT'
+                  : 'ENTRY APPROVED & GATE OPENED'
+                : isExit
+                ? 'EXIT CHECKOUT VERIFIED'
                 : 'PAYMENT VERIFIED & VALID PASS'}
             </h3>
             <p>
               {errorReason
                 ? errorReason
                 : isValid
-                ? `Valid Stay Window: ${remainingFormatted || 'Active'}`
+                ? isApproved
+                  ? isExit
+                    ? 'Student checkout recorded successfully.'
+                    : 'Gate entry verified and logged.'
+                  : isExit
+                  ? 'Student verified inside complex • Ready for exit approval'
+                  : `Valid Stay Window: ${remainingFormatted || 'Active'}`
                 : 'Access Denied'}
             </p>
           </div>
@@ -197,14 +216,16 @@ export const StudentPassVerificationCard: React.FC<StudentPassVerificationCardPr
               {isApproved ? (
                 <>
                   <Check size={24} />
-                  <span>ENTRY APPROVED • GATE OPENED</span>
+                  <span>
+                    {isExit ? 'EXIT APPROVED • CHECKED OUT' : 'ENTRY APPROVED • GATE OPENED'}
+                  </span>
                 </>
               ) : isApproving ? (
-                <span>Confirming Entry...</span>
+                <span>{isExit ? 'Confirming Exit...' : 'Confirming Entry...'}</span>
               ) : (
                 <>
                   <CheckCircle2 size={24} />
-                  <span>APPROVE ENTRY</span>
+                  <span>{isExit ? 'APPROVE EXIT' : 'APPROVE ENTRY'}</span>
                 </>
               )}
             </button>
