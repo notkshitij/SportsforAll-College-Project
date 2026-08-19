@@ -96,7 +96,7 @@ export function hmacSHA256(key: string, message: string): string {
     const hex = sha256(k);
     k = "";
     for (let i = 0; i < hex.length; i += 2) {
-      k += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+      k += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
     }
   }
   
@@ -114,7 +114,7 @@ export function hmacSHA256(key: string, message: string): string {
   const innerHashHex = sha256(ipad + message);
   let innerHashBin = "";
   for (let i = 0; i < innerHashHex.length; i += 2) {
-    innerHashBin += String.fromCharCode(parseInt(innerHashHex.substr(i, 2), 16));
+    innerHashBin += String.fromCharCode(parseInt(innerHashHex.slice(i, i + 2), 16));
   }
 
   return sha256(opad + innerHashBin);
