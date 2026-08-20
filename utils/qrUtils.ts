@@ -2,9 +2,6 @@ import { QRData, ScanResultType, StayExtension } from '../types';
 import { getRemainingTime } from './dateUtils';
 import { hmacSHA256 } from './cryptoUtils';
 
-export const GUARD_SITE_URL =
-  process.env.EXPO_PUBLIC_GUARD_SITE_URL || 'https://sportsforall-poornima.vercel.app';
-
 export const QR_SECRET_KEY =
   process.env.EXPO_PUBLIC_QR_SECRET_KEY || 'pu_sportsforall_secure_qr_secret_key_2026';
 
@@ -17,7 +14,7 @@ export function encodeSecureQRPayload(
   const exp = Date.now() + validityMs;
   const message = `${bookingId}|${type}|${exp}`;
   const sig = hmacSHA256(secretKey, message);
-  return `${GUARD_SITE_URL}/?booking_id=${bookingId}&type=${type}&exp=${exp}&sig=${sig}`;
+  return `booking_id=${bookingId}&type=${type}&exp=${exp}&sig=${sig}`;
 }
 
 export function encodeQRPayload(extension: StayExtension): string {
@@ -51,22 +48,19 @@ export function decodeAndVerifySecureQRPayload(
   let sig: string | null = null;
 
   try {
-    if (rawText.includes('booking_id=') && rawText.includes('sig=')) {
+    let params: URLSearchParams;
+    if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
       const urlObj = new URL(rawText);
-      bookingId = urlObj.searchParams.get('booking_id');
-      type = urlObj.searchParams.get('type') as any;
-      const expStr = urlObj.searchParams.get('exp');
-      exp = expStr ? parseInt(expStr, 10) : null;
-      sig = urlObj.searchParams.get('sig');
+      params = urlObj.searchParams;
     } else {
-      const queryStr = rawText.split('?')[1] || rawText;
-      const params = new URLSearchParams(queryStr);
-      bookingId = params.get('booking_id');
-      type = params.get('type') as any;
-      const expStr = params.get('exp');
-      exp = expStr ? parseInt(expStr, 10) : null;
-      sig = params.get('sig');
+      const queryStr = rawText.includes('?') ? rawText.split('?')[1] : rawText;
+      params = new URLSearchParams(queryStr);
     }
+    bookingId = params.get('booking_id');
+    type = params.get('type') as any;
+    const expStr = params.get('exp');
+    exp = expStr ? parseInt(expStr, 10) : null;
+    sig = params.get('sig');
   } catch (e) {
     return {
       isValidFormat: false,

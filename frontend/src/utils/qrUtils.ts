@@ -171,22 +171,19 @@ export function decodeAndVerifySecureQRPayload(
   let sig: string | null = null;
 
   try {
-    if (rawText.includes('booking_id=') && rawText.includes('sig=')) {
+    let params: URLSearchParams;
+    if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
       const urlObj = new URL(rawText);
-      bookingId = urlObj.searchParams.get('booking_id');
-      type = urlObj.searchParams.get('type') as any;
-      const expStr = urlObj.searchParams.get('exp');
-      exp = expStr ? parseInt(expStr, 10) : null;
-      sig = urlObj.searchParams.get('sig');
+      params = urlObj.searchParams;
     } else {
-      const queryStr = rawText.split('?')[1] || rawText;
-      const params = new URLSearchParams(queryStr);
-      bookingId = params.get('booking_id');
-      type = params.get('type') as any;
-      const expStr = params.get('exp');
-      exp = expStr ? parseInt(expStr, 10) : null;
-      sig = params.get('sig');
+      const queryStr = rawText.includes('?') ? rawText.split('?')[1] : rawText;
+      params = new URLSearchParams(queryStr);
     }
+    bookingId = params.get('booking_id');
+    type = params.get('type') as any;
+    const expStr = params.get('exp');
+    exp = expStr ? parseInt(expStr, 10) : null;
+    sig = params.get('sig');
   } catch (e) {
     return {
       isValidFormat: false,
