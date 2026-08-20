@@ -1,7 +1,7 @@
-import { ScanLog, ScanResultType, StayExtension, VerificationResult } from '../types';
+import { ScanResultType, StayExtension, VerificationResult } from '../types';
 import { getRemainingTime } from '../utils/dateUtils';
-import { supabase } from './supabaseClient';
 import { decodeAndVerifySecureQRPayload } from '../utils/qrUtils';
+import { supabase } from './supabaseClient';
 
 export class VerificationService {
   /**
@@ -76,9 +76,18 @@ export class VerificationService {
 
     // Handle cryptographically signed QR codes (containing booking_id and sig in query params)
     if (cleanInput.includes('booking_id=') && cleanInput.includes('sig=')) {
+      console.log('[Guard verifyCodeOrId] Processing signed QR:', cleanInput);
       const secureResult = decodeAndVerifySecureQRPayload(cleanInput);
       const bookingId = secureResult.bookingId || '';
       qrType = secureResult.type || 'entry';
+
+      console.log('[Guard verifyCodeOrId] Decoded result:', secureResult);
+
+      if (!secureResult.isValidFormat || !bookingId) {
+        throw new Error(
+          `❌ Invalid QR Code: ${secureResult.errorReason || 'Could not extract pass ID from QR code.'}`
+        );
+      }
 
       // Query database for this real booking record
       targetPass = await this.querySupabasePass(bookingId, bookingId, '');
@@ -112,18 +121,6 @@ export class VerificationService {
         } else if (isExpired || targetPass.status === 'expired') {
           scanResult = 'expired';
           errorReason = `Pass validity has expired (${formatted})`;
-        } else if (qrType === 'entry' && targetPass.status === 'CheckedOut') {
-          scanResult = 'expired';
-          errorReason = 'This pass has already been used for entry and completed checkout.';
-        } else if (qrType === 'entry' && (targetPass.status === 'CheckedIn' || targetPass.status === 'Verified')) {
-          scanResult = 'valid';
-          errorReason = 'ℹ️ ENTRY ALREADY APPROVED: Student is currently inside campus. To leave, student must show EXIT QR.';
-        } else if (qrType === 'exit' && targetPass.status !== 'CheckedIn' && targetPass.status !== 'Verified' && targetPass.status !== 'CheckedOut') {
-          scanResult = 'invalid';
-          errorReason = 'Cannot exit: Student has not scanned entry QR at the gate yet.';
-        } else if (qrType === 'exit' && targetPass.status === 'CheckedOut') {
-          scanResult = 'valid';
-          errorReason = 'ℹ️ EXIT ALREADY COMPLETED: Student has already checked out.';
         } else {
           scanResult = 'valid';
         }
@@ -177,9 +174,8 @@ export class VerificationService {
     if (targetPass.status === 'Failed') {
       scanResult = 'invalid';
       errorReason = targetPass.flagReason || 'Pass has been flagged / rejected by security';
-    } else if (targetPass.status === 'CheckedIn' || targetPass.status === 'Verified') {
-      scanResult = 'valid';
-      errorReason = 'ℹ️ Student is currently checked in inside the facility.';
+    } else if (targetPass.status === 'CheckedIn') {
+      scanResult = 'valid'; // Allow re-viewing details of checked-in pass
     } else if (isExpired || targetPass.status === 'expired') {
       scanResult = 'expired';
       errorReason = `Pass has expired (${formatted})`;
@@ -234,66 +230,40 @@ export class VerificationService {
         .select('*');
     }
 
-    // Fallback if Postgres check constraint only allows 'Verified'
-    if (res.error && res.error.message?.includes('check constraint')) {
-      const fallbackStatus = type === 'entry' ? 'Verified' : 'expired';
-      res = await supabase
-        .from('pass_history')
-        .update({
-          status: fallbackStatus,
-          verified_by: guardName,
-          verified_at: verifiedAt,
-        })
-        .eq('id', passId)
-        .select('*');
-
-      if (!res.data || res.data.length === 0) {
-        res = await supabase
-          .from('pass_history')
-          .update({
-            status: fallbackStatus,
-            verified_by: guardName,
-            verified_at: verifiedAt,
-          })
-          .eq('transaction_id', passId)
-          .select('*');
-      }
-    }
-
     const { data, error } = res;
 
     if (error) {
       console.error('Supabase pass update error:', error.message);
-      throw new Error(`Database update failed: ${error.message}`);
+      throw new Error(`Database error approving pass: ${error.message}`);
     }
 
-    if (data && data.length > 0) {
-      const row = data[0];
-      return {
-        id: row.id,
-        studentId: row.student_id,
-        studentName: row.student_name,
-        studentEnrollment: row.student_enrollment,
-        studentYear: row.student_year ?? undefined,
-        email: row.email,
-        department: row.department,
-        duration: row.duration,
-        reason: row.reason,
-        amount: Number(row.amount),
-        transactionId: row.transaction_id,
-        paymentMethod: row.payment_method || 'UPI',
-        upiApp: row.upi_app ?? undefined,
-        qrCode: row.qr_code,
-        validFrom: row.valid_from,
-        validUntil: row.valid_until,
-        status: row.status,
-        createdAt: row.created_at,
-        verifiedBy: row.verified_by,
-        verifiedAt: row.verified_at,
-      };
+    if (!data || data.length === 0) {
+      throw new Error(`Pass ID "${passId}" not found in database or update was blocked.`);
     }
 
-    throw new Error('Pass record not found for status update.');
+    const row = data[0];
+    return {
+      id: row.id,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      studentEnrollment: row.student_enrollment,
+      studentYear: row.student_year ?? undefined,
+      email: row.email,
+      department: row.department,
+      duration: row.duration,
+      reason: row.reason,
+      amount: Number(row.amount),
+      transactionId: row.transaction_id,
+      paymentMethod: row.payment_method || 'UPI',
+      upiApp: row.upi_app ?? undefined,
+      qrCode: row.qr_code,
+      validFrom: row.valid_from,
+      validUntil: row.valid_until,
+      status: row.status,
+      createdAt: row.created_at,
+      verifiedBy: row.verified_by,
+      verifiedAt: row.verified_at,
+    };
   }
 
   /**

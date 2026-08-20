@@ -121,8 +121,15 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
   // Secure Dynamic QR Codes refresh loop (refreshes both codes every 30 seconds)
   useEffect(() => {
     const updatePayloads = () => {
+      if (!currentPass?.id) {
+        console.warn('[QRDisplay] Cannot encode QR: currentPass.id is missing', currentPass);
+        setEntryPayload('');
+        setExitPayload('');
+        return;
+      }
       const entry = encodeSecureQRPayload(currentPass.id, 'entry');
       const exit = encodeSecureQRPayload(currentPass.id, 'exit');
+      console.log(`[QRDisplay] Encoded QR for ID "${currentPass.id}":`, entry);
       setEntryPayload(entry);
       setExitPayload(exit);
       setSecondsToRefresh(30);
@@ -144,7 +151,10 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
   }, [currentPass.id]);
 
   const isExpired = timeRemaining.isExpired;
-  const isEntryApproved = currentPass.status === 'CheckedIn' || currentPass.status === 'CheckedOut';
+  const isEntryApproved =
+    currentPass.status === 'CheckedIn' ||
+    currentPass.status === 'CheckedOut' ||
+    currentPass.status === 'Verified';
   const isExitApproved = currentPass.status === 'CheckedOut';
 
   return (

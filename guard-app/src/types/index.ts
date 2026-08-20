@@ -25,21 +25,24 @@ export interface StayExtension {
   department: string;
   duration: StayDurationHours;
   reason: string;
-  amount: number; // ₹100 fixed
+  amount: number; // ₹100
   transactionId: string;
-  paymentMethod: 'UPI';
-  upiApp?: 'Google Pay' | 'PhonePe' | 'Paytm' | 'BHIM UPI' | 'CRED UPI';
+  paymentMethod: 'UPI' | 'Card' | 'Net Banking' | string;
+  upiApp?: string;
+  cardLast4?: string;
+  bank?: string;
   qrCode: string;
   createdAt: string;
-  validFrom: string; // ISO string — today 4:00 PM
-  validUntil: string; // ISO string — today 8:00 PM
+  validFrom: string; // ISO string
+  validUntil: string; // ISO string
   status: 'valid' | 'expired' | 'Pending' | 'Verified' | 'Failed' | 'CheckedIn' | 'CheckedOut';
   verifiedBy?: string;
   verifiedAt?: string;
+  flagReason?: string;
 }
 
 export interface QRData {
-  version: '1.0';
+  version: '1.0' | string;
   passId: string;
   studentId: string;
   studentName: string;
@@ -64,26 +67,31 @@ export interface ScanLog {
   studentName: string;
   enrollment: string;
   studentYear?: string;
+  department?: string;
   transactionId: string;
+  amount: number;
   validFrom?: string;
   validUntil: string;
   scanResult: ScanResultType;
+  actionTaken?: 'Approved' | 'Flagged' | 'Inspected';
   reason?: string;
   scannedAt: string;
 }
 
-export interface PaymentInitiationParams {
-  student: User;
-  duration?: StayDurationHours;
-  reason?: string;
-  upiApp?: string;
+export interface VerificationResult {
+  scanResult: ScanResultType;
+  isValidFormat: boolean;
+  pass: StayExtension;
+  errorReason?: string;
+  remainingFormatted?: string;
+  isFacilityOpenNow: boolean;
+  qrType?: 'entry' | 'exit';
+  signatureValid?: boolean;
+  qrExpired?: boolean;
 }
 
-export interface PaymentResult {
-  success: boolean;
-  transactionId: string;
-  amount: number;
-  paidAt: string;
-  paymentMethod: string;
-  error?: string;
+export interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
 }

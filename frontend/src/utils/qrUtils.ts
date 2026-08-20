@@ -165,6 +165,13 @@ export function decodeAndVerifySecureQRPayload(
     };
   }
 
+  let text = rawText.trim();
+  try {
+    if (text.includes('%3D') || text.includes('%26') || text.includes('%3F') || text.includes('%20')) {
+      text = decodeURIComponent(text);
+    }
+  } catch (_) {}
+
   let bookingId: string | null = null;
   let type: 'entry' | 'exit' | null = null;
   let exp: number | null = null;
@@ -172,11 +179,11 @@ export function decodeAndVerifySecureQRPayload(
 
   try {
     let params: URLSearchParams;
-    if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
-      const urlObj = new URL(rawText);
+    if (text.startsWith('http://') || text.startsWith('https://')) {
+      const urlObj = new URL(text);
       params = urlObj.searchParams;
     } else {
-      const queryStr = rawText.includes('?') ? rawText.split('?')[1] : rawText;
+      const queryStr = text.includes('?') ? text.split('?')[1] : text;
       params = new URLSearchParams(queryStr);
     }
     bookingId = params.get('booking_id');
@@ -192,11 +199,12 @@ export function decodeAndVerifySecureQRPayload(
     };
   }
 
-  if (!bookingId || !type || !exp || !sig) {
+  if (!bookingId || !type || !exp || !sig || bookingId === 'undefined' || bookingId === 'null') {
     return {
       isValidFormat: false,
       scanResult: 'invalid',
-      errorReason: 'Missing secure QR attributes',
+      bookingId: bookingId || undefined,
+      errorReason: 'Missing or malformed secure QR attributes',
     };
   }
 

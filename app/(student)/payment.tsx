@@ -6,6 +6,7 @@ import { PaymentButton } from '../../components/PaymentButton';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
 import { APP_CONFIG } from '../../constants/config';
+import { PassHistoryService } from '../../services/passHistoryService';
 import { PaymentService } from '../../services/paymentService';
 import { useAuthStore } from '../../store/authStore';
 import { useStayExtensionStore } from '../../store/stayExtensionStore';
@@ -35,6 +36,11 @@ export default function PaymentScreen() {
 
       // Save into store
       addExtension(extension);
+      try {
+        await PassHistoryService.upsertPass(extension);
+      } catch (e: any) {
+        console.warn('Immediate pass sync notice:', e?.message);
+      }
       setLastCreatedPass(extension);
 
       // Route to success screen

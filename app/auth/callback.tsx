@@ -57,6 +57,13 @@ export default function AuthCallbackScreen() {
     processedRef.current = true;
 
     async function handleAuthRedirect() {
+      // If user is already authenticated in store, navigate to dashboard immediately
+      const existingUser = useAuthStore.getState().user;
+      if (existingUser && existingUser.email && isValidPoornimaEmail(existingUser.email)) {
+        router.replace('/(student)');
+        return;
+      }
+
       try {
         setStatusText('Completing sign-in...');
 
@@ -71,7 +78,7 @@ export default function AuthCallbackScreen() {
         }
 
         // Parse hash fragments if params weren't automatically unpacked
-        if (!accessToken || !code) {
+        if (!accessToken && !code) {
           const initialUrl = await Linking.getInitialURL();
           if (initialUrl) {
             try {
@@ -100,19 +107,44 @@ export default function AuthCallbackScreen() {
 
         // 3. Fetch active user from Supabase session
         setStatusText('Validating university account...');
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        let sbUser: any = null;
 
-        if (userErr || !userData?.user?.email) {
-          // If no direct session user found, wait briefly and retry once
-          await new Promise((r) => setTimeout(r, 600));
-          const retry = await supabase.auth.getUser();
-          if (retry.error || !retry.data?.user?.email) {
-            throw new Error('Could not establish an authenticated session. Please try logging in again.');
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          sbUser = sessionData.session.user;
+        } else {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            sbUser = userData.user;
           }
-          userData.user = retry.data.user;
         }
 
-        const sbUser = userData.user;
+        if (!sbUser || !sbUser.email) {
+          // If already authenticated in memory store, silently redirect
+          if (useAuthStore.getState().isAuthenticated) {
+            router.replace('/(student)');
+            return;
+          }
+
+          // Retry check after brief delay
+          await new Promise((r) => setTimeout(r, 600));
+          const retrySession = await supabase.auth.getSession();
+          if (retrySession.data?.session?.user?.email) {
+            sbUser = retrySession.data.session.user;
+          } else {
+            const userRetry = await supabase.auth.getUser();
+            if (userRetry.data?.user?.email) {
+              sbUser = userRetry.data.user;
+            } else {
+              if (useAuthStore.getState().isAuthenticated) {
+                router.replace('/(student)');
+                return;
+              }
+              throw new Error('Could not establish an authenticated session. Please try logging in again.');
+            }
+          }
+        }
+
         const email = sbUser.email!.toLowerCase();
 
         // 4. Strict Domain Check for @poornima.edu.in
@@ -150,13 +182,15 @@ export default function AuthCallbackScreen() {
 
         setStatusText('Welcome! Redirecting...');
         setTimeout(() => {
-          if (finalUser.role === 'guard') {
-            router.replace('/(student)');
-          } else {
-            router.replace('/(student)');
-          }
-        }, 400);
+          router.replace('/(student)');
+        }, 300);
       } catch (err: any) {
+        // If user is already logged in (e.g. handled by openAuthSessionAsync in parallel), do not show error
+        if (useAuthStore.getState().isAuthenticated) {
+          router.replace('/(student)');
+          return;
+        }
+
         console.warn('Auth callback resolution error:', err?.message);
         setHasError(true);
         setStatusText('Authentication failed');

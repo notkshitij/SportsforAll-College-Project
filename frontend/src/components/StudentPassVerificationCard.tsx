@@ -25,12 +25,12 @@ export const StudentPassVerificationCard: React.FC<StudentPassVerificationCardPr
 
   const isExit = qrType === 'exit';
 
-  // For exit QR, approved only when CheckedOut. For entry QR, approved when CheckedIn or CheckedOut.
+  // For exit QR, approved only when CheckedOut. For entry QR, approved when CheckedIn, Verified, or CheckedOut.
   const computeIsApproved = (status: string, type: 'entry' | 'exit') => {
     if (type === 'exit') {
       return status === 'CheckedOut';
     }
-    return status === 'CheckedIn' || status === 'CheckedOut';
+    return status === 'CheckedIn' || status === 'CheckedOut' || status === 'Verified';
   };
 
   const [isApproving, setIsApproving] = useState(false);

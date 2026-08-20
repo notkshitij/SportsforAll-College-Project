@@ -17,11 +17,16 @@ export default function QRDisplayScreen() {
   const { lastCreatedPass, activePass, getActivePassForStudent } = useStayExtensionStore();
 
   const studentUser = user || APP_CONFIG.DEMO_STUDENT;
-  const currentPass =
+  const candidatePass =
     lastCreatedPass ||
     activePass ||
-    getActivePassForStudent(studentUser.id || 'stu_001') ||
-    INITIAL_EXTENSIONS[0];
+    getActivePassForStudent(studentUser.id || 'stu_001');
+
+  // Strict check: only render QR if the pass object actually has a valid non-empty id
+  const currentPass =
+    candidatePass && typeof candidatePass.id === 'string' && candidatePass.id.trim().length > 0
+      ? candidatePass
+      : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

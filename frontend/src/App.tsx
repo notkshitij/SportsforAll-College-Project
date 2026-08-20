@@ -139,7 +139,18 @@ export function App() {
   const handleApproveEntry = async (pass: StayExtension) => {
     try {
       const type = activeResult?.qrType || 'entry';
-      await VerificationService.approvePass(pass.id, guardName, type);
+      const updatedPass = await VerificationService.approvePass(pass.id, guardName, type);
+      
+      // Immediately reflect new status in the guard UI
+      setActiveResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              pass: updatedPass,
+            }
+          : null
+      );
+
       audioFeedback.playSuccessChime();
       const isExit = type === 'exit';
       addToast(

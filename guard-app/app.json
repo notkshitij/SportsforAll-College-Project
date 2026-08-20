@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Sportsforall Guard",
+    "slug": "sportsforall-guard",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "scheme": "sportsforall-guard",
+    "icon": "./assets/pu_logo.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/pu_logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E40AF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Sportsforall Guard requires camera access to scan student stay extension QR codes.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.sportsforall.guard"
+    },
+    "android": {
+      "package": "com.sportsforall.guard",
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/pu_logo.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Sportsforall Guard requires camera access to scan and verify student stay extension QR codes."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "087f039f-d556-414f-a671-9d0d6d21e948"
+      }
+    }
+  }
+}

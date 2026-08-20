@@ -47,7 +47,9 @@ export class StayExtensionService {
    * Find current active pass for a student (if any)
    */
   static getActiveStudentPass(extensions: StayExtension[], studentId: string): StayExtension | null {
-    const studentPasses = extensions.filter((e) => e.studentId === studentId);
+    const studentPasses = (extensions || []).filter(
+      (e) => e && typeof e.id === 'string' && e.id.trim().length > 0 && e.studentId === studentId
+    );
     // Find the pass with status 'valid' and future validUntil
     const validPass = studentPasses.find((e) => {
       const { isExpired } = getRemainingTime(e.validUntil);
