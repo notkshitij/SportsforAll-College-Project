@@ -37,8 +37,9 @@ export function isFacilityOperatingNow(): { isOpen: boolean; message: string; ne
 export function formatTime12h(dateInput: Date | string): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (isNaN(date.getTime())) return '--:--';
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
+  return date.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
@@ -47,10 +48,9 @@ export function formatTime12h(dateInput: Date | string): string {
 export function formatDateTimeNice(dateInput: Date | string): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (isNaN(date.getTime())) return 'Invalid date';
-  const day = date.getDate().toString().padStart(2, '0');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[date.getMonth()];
-  const year = date.getFullYear();
+  const day = date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+  const month = date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short' });
+  const year = date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric' });
   const time = formatTime12h(date);
   return `${day} ${month} ${year}, ${time}`;
 }
@@ -58,9 +58,8 @@ export function formatDateTimeNice(dateInput: Date | string): string {
 export function formatDateShort(dateInput: Date | string): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (isNaN(date.getTime())) return '';
-  const day = date.getDate().toString().padStart(2, '0');
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[date.getMonth()];
+  const day = date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+  const month = date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short' });
   return `${day} ${month}`;
 }
 
@@ -70,15 +69,86 @@ export function calculateValidUntil(durationHours: number, baseDate: Date = new 
 }
 
 /**
- * Returns today's fixed sports-complex stay window: 4:00 PM to 8:00 PM.
- * Used for the simplified "stay today" pass (no duration/reason selection).
+ * Extracts the booked stay time window (e.g. "4:00 PM – 8:00 PM") from the pass reason / purpose string.
+ */
+export function extractStayWindowFromReason(reason?: string): string | null {
+  if (!reason || typeof reason !== 'string') return null;
+
+  // Matches patterns like "4:00 PM - 8:00 PM", "4:00 PM – 8:00 PM", "4 PM - 8 PM", "04:00 PM to 08:00 PM"
+  const match = reason.match(
+    /(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))\s*(?:[-–—]|to)\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/i
+  );
+  if (match) {
+    return `${match[1].trim()} – ${match[2].trim()}`;
+  }
+  return null;
+}
+
+/**
+ * Returns the formatted Stay Window (e.g. "4:00 PM – 8:00 PM") for a pass.
+ * Priority:
+ * 1. Booked stay slot extracted directly from `reason` / purpose string (source of truth for booking)
+ * 2. Fallback to validFrom – validUntil (formatted in IST)
+ * 3. Default to university sports complex facility hours (4:00 PM – 8:00 PM)
+ */
+export function formatStayWindow(
+  passOrReason?:
+    | { reason?: string; validFrom?: string; validUntil?: string; createdAt?: string }
+    | string
+    | null,
+  validUntil?: string
+): string {
+  // Case 1: Pass object
+  if (passOrReason && typeof passOrReason === 'object') {
+    const fromReason = extractStayWindowFromReason(passOrReason.reason);
+    if (fromReason) {
+      return fromReason;
+    }
+
+    if (passOrReason.validFrom && passOrReason.validUntil) {
+      const fromTime = formatTime12h(passOrReason.validFrom);
+      const untilTime = formatTime12h(passOrReason.validUntil);
+      if (fromTime !== '--:--' && untilTime !== '--:--') {
+        return `${fromTime} – ${untilTime}`;
+      }
+    }
+  }
+
+  // Case 2: String argument
+  if (typeof passOrReason === 'string') {
+    const fromReason = extractStayWindowFromReason(passOrReason);
+    if (fromReason) {
+      return fromReason;
+    }
+
+    if (validUntil) {
+      const fromTime = formatTime12h(passOrReason);
+      const untilTime = formatTime12h(validUntil);
+      if (fromTime !== '--:--' && untilTime !== '--:--') {
+        return `${fromTime} – ${untilTime}`;
+      }
+    }
+  }
+
+  // Case 3: Default official sports complex facility hours
+  const startHour = APP_CONFIG.OPERATING_HOURS_START || 16; // 16 -> 4:00 PM
+  const endHour = APP_CONFIG.OPERATING_HOURS_END || 20;     // 20 -> 8:00 PM
+  const startFormatted = startHour > 12 ? `${startHour - 12}:00 PM` : `${startHour}:00 AM`;
+  const endFormatted = endHour > 12 ? `${endHour - 12}:00 PM` : `${endHour}:00 AM`;
+  return `${startFormatted} – ${endFormatted}`;
+}
+
+/**
+ * Returns today's fixed sports-complex stay window: 4:00 PM to 8:00 PM IST.
+ * Guaranteed timezone-safe for Asia/Kolkata (UTC+5:30) on any device or server.
  */
 export function getTodayStayWindow(): { validFrom: string; validUntil: string } {
   const now = new Date();
-  const from = new Date(now);
-  from.setHours(APP_CONFIG.OPERATING_HOURS_START, 0, 0, 0);
-  const until = new Date(now);
-  until.setHours(APP_CONFIG.OPERATING_HOURS_END, 0, 0, 0);
+  const istDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+  const startHourStr = String(APP_CONFIG.OPERATING_HOURS_START || 16).padStart(2, '0');
+  const endHourStr = String(APP_CONFIG.OPERATING_HOURS_END || 20).padStart(2, '0');
+  const from = new Date(`${istDateStr}T${startHourStr}:00:00+05:30`);
+  const until = new Date(`${istDateStr}T${endHourStr}:00:00+05:30`);
   return {
     validFrom: from.toISOString(),
     validUntil: until.toISOString(),

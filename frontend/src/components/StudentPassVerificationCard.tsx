@@ -8,7 +8,7 @@ import {
 } from './icons';
 import confetti from 'canvas-confetti';
 import { VerificationResult, StayExtension } from '../types';
-import { formatDateTimeNice, formatTime12h } from '../utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h } from '../utils/dateUtils';
 import { APP_CONFIG } from '../constants/config';
 import './StudentPassVerificationCard.css';
 
@@ -156,9 +156,7 @@ export const StudentPassVerificationCard: React.FC<StudentPassVerificationCardPr
 
           <div className="receipt-row">
             <span className="receipt-label">Stay Window</span>
-            <span className="receipt-value">
-              {formatTime12h(pass.validFrom || pass.createdAt)} – {formatTime12h(pass.validUntil)}
-            </span>
+            <span className="receipt-value">{formatStayWindow(pass)}</span>
           </div>
 
           <div className="receipt-row">

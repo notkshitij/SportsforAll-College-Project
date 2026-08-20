@@ -23,7 +23,7 @@
       "package": "com.sportsforall.app",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#1E40AF",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/pu_logo.png"
       },
       "permissions": [
@@ -31,7 +31,24 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "sportsforall",
+              "host": "auth",
+              "pathPrefix": "/callback"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/pu_logo.png",
@@ -45,8 +62,7 @@
         {
           "cameraPermission": "Sportsforall requires camera access to scan and verify student stay extension QR codes."
         }
-      ],
-      "@react-native-google-signin/google-signin"
+      ]
     ],
     "extra": {
       "router": {},

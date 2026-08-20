@@ -12,7 +12,7 @@ import { APP_CONFIG } from '../constants/config';
 import { QRService } from '../services/qrService';
 import { useThemeStore } from '../store/themeStore';
 import { StayExtension } from '../types';
-import { formatDateTimeNice, formatTime12h } from '../utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h } from '../utils/dateUtils';
 import { formatCurrencyINR, generateReceiptId } from '../utils/formatUtils';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
@@ -132,7 +132,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
           <View style={styles.row}>
             <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Stay Window</Text>
             <Text style={[styles.rowValue, { color: colors.text }]}>
-              {formatTime12h(extension.validFrom || extension.createdAt)} - {formatTime12h(extension.validUntil)}
+              {formatStayWindow(extension)}
             </Text>
           </View>
 

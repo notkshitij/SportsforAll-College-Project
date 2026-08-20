@@ -8,7 +8,7 @@ import {
 } from './icons';
 import { StayExtension } from '../types';
 import { VerificationService } from '../services/verificationService';
-import { formatDateTimeNice, formatTime12h } from '../utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h } from '../utils/dateUtils';
 import { APP_CONFIG } from '../constants/config';
 import './MonthlyReport.css';
 
@@ -117,7 +117,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = () => {
         `"${r.department || '—'}"`,
         `"${r.studentYear || '—'}"`,
         `"${r.email || '—'}"`,
-        `"${formatTime12h(r.validFrom || r.createdAt)} - ${formatTime12h(r.validUntil)}"`,
+        `"${formatStayWindow(r)}"`,
         `"${computed}"`,
         `"${r.transactionId || '—'}"`,
         `"${r.paymentMethod || 'UPI'}"`,
@@ -283,8 +283,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = () => {
                     <td className="cell-dept">{item.department || '—'}</td>
                     <td className="cell-year">{item.studentYear || '—'}</td>
                     <td className="cell-window">
-                      {formatTime12h(item.validFrom || item.createdAt)} –{' '}
-                      {formatTime12h(item.validUntil)}
+                      {formatStayWindow(item)}
                     </td>
                     <td className="cell-status">
                       <span

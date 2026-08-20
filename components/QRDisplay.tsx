@@ -9,7 +9,7 @@ import { supabase } from '../services/supabase';
 import { useStayExtensionStore } from '../store/stayExtensionStore';
 import { useThemeStore } from '../store/themeStore';
 import { StayExtension } from '../types';
-import { formatDateTimeNice, formatTime12h, getRemainingTime } from '../utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h, getRemainingTime } from '../utils/dateUtils';
 import { encodeSecureQRPayload } from '../utils/qrUtils';
 import { QRGenerator } from './QRGenerator';
 import { Badge } from './ui/Badge';
@@ -275,8 +275,7 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
               Stay Window:
             </Text>
             <Text style={[styles.detailValue, { color: colors.textSecondary }]}>
-              {formatTime12h(currentPass.validFrom || currentPass.createdAt)} -{' '}
-              {formatTime12h(currentPass.validUntil)}
+              {formatStayWindow(currentPass)}
             </Text>
           </View>
         </View>

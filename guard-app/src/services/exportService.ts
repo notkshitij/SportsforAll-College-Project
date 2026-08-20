@@ -3,7 +3,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { APP_CONFIG } from '../constants/config';
 import { StayExtension } from '../types';
-import { formatDateTimeNice, formatTime12h } from '../utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h } from '../utils/dateUtils';
 
 function getPassComputedStatus(item: StayExtension): 'Approved' | 'CheckedOut' | 'Expired' | 'Flagged' | 'Valid' {
   if (item.status === 'Failed') return 'Flagged';
@@ -56,7 +56,7 @@ export class ExportService {
         `"${r.department || '—'}"`,
         `"${r.studentYear || '—'}"`,
         `"${r.email || '—'}"`,
-        `"${formatTime12h(r.validFrom || r.createdAt)} - ${formatTime12h(r.validUntil)}"`,
+        `"${formatStayWindow(r)}"`,
         `"${computed}"`,
         `"${r.transactionId || '—'}"`,
         `"${r.paymentMethod || 'UPI'}"`,
@@ -128,7 +128,7 @@ export class ExportService {
             <td style="font-weight: 600;">${item.studentEnrollment || '—'}</td>
             <td>${item.department || '—'}</td>
             <td>${item.studentYear || '—'}</td>
-            <td style="white-space: nowrap;">${formatTime12h(item.validFrom || item.createdAt)} – ${formatTime12h(item.validUntil)}</td>
+            <td style="white-space: nowrap;">${formatStayWindow(item)}</td>
             <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
             <td style="font-family: monospace; font-size: 8pt;">${item.transactionId || '—'}</td>
             <td style="font-weight: 700;">₹${item.amount != null ? item.amount : 100}</td>

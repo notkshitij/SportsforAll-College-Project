@@ -224,55 +224,36 @@ export class VerificationService {
     const { data, error } = res;
 
     if (error) {
-      console.warn('Supabase pass update error:', error.message);
+      console.error('Supabase pass update error:', error.message);
+      throw new Error(`Database error approving pass: ${error.message}`);
     }
 
-    if (data && data.length > 0) {
-      const row = data[0];
-      return {
-        id: row.id,
-        studentId: row.student_id,
-        studentName: row.student_name,
-        studentEnrollment: row.student_enrollment,
-        studentYear: row.student_year ?? undefined,
-        email: row.email,
-        department: row.department,
-        duration: row.duration,
-        reason: row.reason,
-        amount: Number(row.amount),
-        transactionId: row.transaction_id,
-        paymentMethod: row.payment_method || 'UPI',
-        upiApp: row.upi_app ?? undefined,
-        qrCode: row.qr_code,
-        validFrom: row.valid_from,
-        validUntil: row.valid_until,
-        status: row.status,
-        createdAt: row.created_at,
-        verifiedBy: row.verified_by,
-        verifiedAt: row.verified_at,
-      };
+    if (!data || data.length === 0) {
+      throw new Error(`Pass ID "${passId}" not found in database or update was blocked.`);
     }
 
-    // Fallback object if offline
+    const row = data[0];
     return {
-      id: passId,
-      studentId: 'stu_verified',
-      studentName: 'Verified Student',
-      studentEnrollment: 'PU-STUDENT',
-      department: 'Sports Complex',
-      duration: 4,
-      reason: 'Authorized Entry',
-      amount: 100,
-      transactionId: `TXN-${passId.slice(-6)}`,
-      paymentMethod: 'UPI',
-      qrCode: '',
-      createdAt: verifiedAt,
-      validFrom: verifiedAt,
-      validUntil: verifiedAt,
-      status: newStatus,
-      verifiedBy: guardName,
-      verifiedAt,
-      email: 'student@poornima.edu.in',
+      id: row.id,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      studentEnrollment: row.student_enrollment,
+      studentYear: row.student_year ?? undefined,
+      email: row.email,
+      department: row.department,
+      duration: row.duration,
+      reason: row.reason,
+      amount: Number(row.amount),
+      transactionId: row.transaction_id,
+      paymentMethod: row.payment_method || 'UPI',
+      upiApp: row.upi_app ?? undefined,
+      qrCode: row.qr_code,
+      validFrom: row.valid_from,
+      validUntil: row.valid_until,
+      status: row.status,
+      createdAt: row.created_at,
+      verifiedBy: row.verified_by,
+      verifiedAt: row.verified_at,
     };
   }
 

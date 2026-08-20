@@ -12,7 +12,7 @@ import {
 import { APP_CONFIG } from '../constants/config';
 import { useThemeStore } from '../store/themeStore';
 import { StayExtension, VerificationResult } from '../types';
-import { formatDateTimeNice, formatTime12h, getRemainingTime } from '../utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h, getRemainingTime } from '../utils/dateUtils';
 
 interface StudentPassVerificationCardProps {
   result: VerificationResult;
@@ -216,7 +216,7 @@ export const StudentPassVerificationCard: React.FC<StudentPassVerificationCardPr
           {pass.studentYear ? <DetailRow label="Academic Year" value={pass.studentYear} colors={colors} /> : null}
           <DetailRow
             label="Stay Window"
-            value={`${formatTime12h(pass.validFrom || pass.createdAt)} – ${formatTime12h(pass.validUntil)}`}
+            value={formatStayWindow(pass)}
             colors={colors}
           />
           <DetailRow label="Issue Date & Time" value={formatDateTimeNice(pass.createdAt)} colors={colors} />

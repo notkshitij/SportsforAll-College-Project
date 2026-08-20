@@ -44,27 +44,55 @@ function getGoogleSignin() {
 export async function signInWithGoogleNative(): Promise<{ user: User }> {
   const GoogleSignin = getGoogleSignin();
   if (!GoogleSignin) {
+    console.warn('Native GoogleSignin module not available in runtime binary, falling back to OAuth');
+    return signInWithGoogleOAuth();
+  }
+
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+  if (!webClientId) {
+    console.warn('EXPO_PUBLIC_GOOGLE_CLIENT_ID is not configured, falling back to OAuth');
     return signInWithGoogleOAuth();
   }
 
   try {
     GoogleSignin.configure({
-      webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+      webClientId,
       offlineAccess: false,
     });
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  } catch (e) {
+  } catch (e: any) {
+    console.warn('GoogleSignin configure / Play Services check failed:', e?.message);
     return signInWithGoogleOAuth();
   }
 
-  const signInResult: any = await GoogleSignin.signIn();
+  let signInResult: any;
+  try {
+    signInResult = await GoogleSignin.signIn();
+  } catch (e: any) {
+    // If the user dismissed or cancelled the native account picker, do NOT fallback to browser OAuth
+    if (
+      e?.code === '12501' || // SIGN_IN_CANCELLED
+      e?.code === 'SIGN_IN_CANCELLED' ||
+      e?.message?.toLowerCase().includes('cancel') ||
+      e?.message?.toLowerCase().includes('dismiss')
+    ) {
+      throw new Error('Google Sign-In was cancelled.');
+    }
+    console.warn('GoogleSignin.signIn() failed, falling back to OAuth:', e?.code, e?.message);
+    return signInWithGoogleOAuth();
+  }
+
+  if (signInResult?.type === 'cancelled') {
+    throw new Error('Google Sign-In was cancelled.');
+  }
 
   // Newer versions of the library nest the payload under `.data`
   const idToken: string | undefined =
     signInResult?.data?.idToken || signInResult?.idToken;
 
   if (!idToken) {
-    throw new Error('No ID token received from Google.');
+    console.warn('No ID token received from native GoogleSignin, falling back to OAuth');
+    return signInWithGoogleOAuth();
   }
 
   const { data, error } = await supabase.auth.signInWithIdToken({
@@ -85,7 +113,9 @@ export async function signInWithGoogleNative(): Promise<{ user: User }> {
 
   if (!isValidPoornimaEmail(email)) {
     await supabase.auth.signOut();
-    await GoogleSignin.signOut();
+    try {
+      await GoogleSignin.signOut();
+    } catch (_) {}
     throw new Error(
       'Access Restricted: Only official @poornima.edu.in Google Workspace accounts are permitted to enter the Sports Complex.'
     );
@@ -180,7 +210,7 @@ export async function signInWithGoogleOAuth(): Promise<{ user: User }> {
   return { user: formatSupabaseUser(userData.user) };
 }
 
-function formatSupabaseUser(sbUser: any): User {
+export function formatSupabaseUser(sbUser: any): User {
   const email = sbUser.email.toLowerCase();
   const isGuard = email.startsWith('guard') || email.includes('security');
   const metadata = sbUser.user_metadata || {};

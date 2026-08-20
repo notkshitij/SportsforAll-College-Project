@@ -18,7 +18,7 @@ import { ExportService } from '../src/services/exportService';
 import { VerificationService } from '../src/services/verificationService';
 import { useThemeStore } from '../src/store/themeStore';
 import { StayExtension, ToastMessage } from '../src/types';
-import { formatDateTimeNice, formatTime12h } from '../src/utils/dateUtils';
+import { formatDateTimeNice, formatStayWindow, formatTime12h } from '../src/utils/dateUtils';
 
 export default function MonthlyReportScreen() {
   const insets = useSafeAreaInsets();
@@ -222,7 +222,7 @@ export default function MonthlyReportScreen() {
           <View style={styles.gridCol}>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Stay Window</Text>
             <Text style={[styles.gridValue, { color: colors.text }]}>
-              {formatTime12h(item.validFrom || item.createdAt)} – {formatTime12h(item.validUntil)}
+              {formatStayWindow(item)}
             </Text>
           </View>
 

@@ -28,7 +28,13 @@ export class AuthService {
       return { user };
     } catch (err: any) {
       // If user cancelled, don't fallback, just rethrow
-      if (err.message && (err.message.includes('cancelled') || err.message.includes('dismissed') || err.code === '12501')) {
+      if (
+        err.message &&
+        (err.message.toLowerCase().includes('cancelled') ||
+         err.message.toLowerCase().includes('dismissed') ||
+         err.code === '12501' ||
+         err.code === 'SIGN_IN_CANCELLED')
+      ) {
         throw err;
       }
       // If native login was successful but email domain restriction blocked access, throw immediately

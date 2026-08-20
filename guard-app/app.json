@@ -25,7 +25,7 @@
       "package": "com.sportsforall.guard",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#1E40AF",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/pu_logo.png"
       },
       "permissions": [
