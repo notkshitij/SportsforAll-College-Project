@@ -134,6 +134,89 @@ export async function signInWithGoogleNative(): Promise<{ user: User }> {
   return { user: formatSupabaseUser(sbUser) };
 }
 
+export let authExchangeInFlight: Promise<{ user: User } | null> | null = null;
+
+export function setAuthExchangeInFlight(promise: Promise<{ user: User } | null> | null) {
+  authExchangeInFlight = promise;
+}
+
+/**
+ * Coordinate exchange of OAuth code or tokens with a single-flight promise lock.
+ * Prevents race-condition / duplicate code exchange when openAuthSessionAsync and callback.tsx race.
+ */
+export async function executeAuthExchange(params: {
+  code?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  caller: string;
+}): Promise<{ user: User }> {
+  // If an exchange is already in flight, await the existing promise
+  if (authExchangeInFlight) {
+    console.log(`[AuthLock] ${params.caller}: Exchange already in flight, waiting for existing promise...`);
+    const result = await authExchangeInFlight;
+    if (result?.user) {
+      return result;
+    }
+    throw new Error('Could not establish an authenticated session.');
+  }
+
+  const { code, accessToken, refreshToken, caller } = params;
+  if (!code && (!accessToken || !refreshToken)) {
+    throw new Error('No authentication credentials (code or tokens) provided for exchange.');
+  }
+
+  console.log(`[AuthLock] ${caller}: Initiating single-source OAuth credentials exchange...`);
+
+  authExchangeInFlight = (async () => {
+    try {
+      let sessionDataUser = null;
+
+      if (code) {
+        console.log(`[AuthLock] ${caller}: Calling supabase.auth.exchangeCodeForSession(code)...`);
+        const { data: sessionData, error: sessionErr } = await supabase.auth.exchangeCodeForSession(code);
+        if (sessionErr) throw sessionErr;
+        sessionDataUser = sessionData.user;
+      } else if (accessToken && refreshToken) {
+        console.log(`[AuthLock] ${caller}: Calling supabase.auth.setSession(tokens)...`);
+        const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionErr) throw sessionErr;
+        sessionDataUser = sessionData.user;
+      }
+
+      if (!sessionDataUser) {
+        const { data: userData } = await supabase.auth.getUser();
+        sessionDataUser = userData?.user;
+      }
+
+      if (!sessionDataUser || !sessionDataUser.email) {
+        throw new Error('No user email returned by authentication provider.');
+      }
+
+      const email = sessionDataUser.email.toLowerCase();
+
+      // Strict Domain Check
+      if (!isValidPoornimaEmail(email)) {
+        await supabase.auth.signOut();
+        throw new Error(
+          'Access Restricted: Only official @poornima.edu.in Google Workspace accounts are permitted to enter the Sports Complex.'
+        );
+      }
+
+      return { user: formatSupabaseUser(sessionDataUser) };
+    } finally {
+      // Keep promise available briefly (5s) for trailing deep-link mounts, then reset
+      setTimeout(() => {
+        authExchangeInFlight = null;
+      }, 5000);
+    }
+  })();
+
+  return (await authExchangeInFlight) as { user: User };
+}
+
 /**
  * Perform Google OAuth through Supabase (Browser-based flow)
  */
@@ -174,37 +257,24 @@ export async function signInWithGoogleOAuth(): Promise<{ user: User }> {
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
 
-      let sessionDataUser = null;
-
-      if (code) {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.exchangeCodeForSession(code);
-        if (sessionErr) throw sessionErr;
-        sessionDataUser = sessionData.user;
-      } else if (accessToken && refreshToken) {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
+      if (code || (accessToken && refreshToken)) {
+        return await executeAuthExchange({
+          code,
+          accessToken,
+          refreshToken,
+          caller: 'signInWithGoogleOAuth',
         });
-        if (sessionErr) throw sessionErr;
-        sessionDataUser = sessionData.user;
-      }
-
-      if (sessionDataUser && sessionDataUser.email) {
-        const email = sessionDataUser.email.toLowerCase();
-
-        // Strict Domain Check
-        if (!isValidPoornimaEmail(email)) {
-          await supabase.auth.signOut();
-          throw new Error(
-            'Access Restricted: Only official @poornima.edu.in Google Workspace accounts are permitted to enter the Sports Complex.'
-          );
-        }
-
-        return { user: formatSupabaseUser(sessionDataUser) };
       }
     } else if (res.type === 'cancel' || res.type === 'dismiss') {
       throw new Error('Google Sign-In was cancelled.');
     }
+  }
+
+  // If exchange was handled by callback screen in parallel, await it
+  if (authExchangeInFlight) {
+    console.log('[AuthLock] signInWithGoogleOAuth: Awaiting in-flight exchange from callback screen...');
+    const result = await authExchangeInFlight;
+    if (result?.user) return result;
   }
 
   // Check current session

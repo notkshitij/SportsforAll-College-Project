@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { APP_CONFIG } from '../../constants/config';
 import { ProfileService } from '../../services/profileService';
-import { formatSupabaseUser, supabase } from '../../services/supabase';
+import { authExchangeInFlight, executeAuthExchange, formatSupabaseUser, supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 import { isValidPoornimaEmail } from '../../utils/validationUtils';
@@ -57,7 +57,7 @@ export default function AuthCallbackScreen() {
     processedRef.current = true;
 
     async function handleAuthRedirect() {
-      // If user is already authenticated in store, navigate to dashboard immediately
+      // 1. If user is already authenticated in store, navigate to dashboard immediately
       const existingUser = useAuthStore.getState().user;
       if (existingUser && existingUser.email && isValidPoornimaEmail(existingUser.email)) {
         router.replace('/(student)');
@@ -67,7 +67,29 @@ export default function AuthCallbackScreen() {
       try {
         setStatusText('Completing sign-in...');
 
-        // 1. Check tokens/code from searchParams or full initial URL
+        // 2. If exchange is already in flight (e.g. from signInWithGoogleOAuth), await that promise
+        if (authExchangeInFlight) {
+          console.log('[AuthCallback] Exchange already in flight from signInWithGoogleOAuth, awaiting result...');
+          setStatusText('Verifying your credentials...');
+          const result = await authExchangeInFlight;
+          if (result?.user) {
+            let finalUser = result.user;
+            try {
+              const savedProfile = await ProfileService.getProfile(result.user.id);
+              if (savedProfile) {
+                finalUser = { ...result.user, ...savedProfile, id: result.user.id, email: result.user.email, role: result.user.role };
+              }
+            } catch (_) {}
+
+            setUser(finalUser);
+            ProfileService.upsertProfile(finalUser).catch(() => {});
+            setStatusText('Welcome! Redirecting...');
+            setTimeout(() => router.replace('/(student)'), 300);
+            return;
+          }
+        }
+
+        // 3. Extract tokens/code from searchParams or full initial URL
         let accessToken = (searchParams.access_token as string) || '';
         let refreshToken = (searchParams.refresh_token as string) || '';
         let code = (searchParams.code as string) || '';
@@ -93,97 +115,58 @@ export default function AuthCallbackScreen() {
           }
         }
 
-        // 2. Hydrate session in Supabase client
-        if (accessToken && refreshToken) {
-          const { error: sessionErr } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
+        // 4. If credentials exist, execute exchange with single-flight mutex
+        if (code || (accessToken && refreshToken)) {
+          const { user } = await executeAuthExchange({
+            code,
+            accessToken,
+            refreshToken,
+            caller: 'AuthCallbackScreen',
           });
-          if (sessionErr) throw sessionErr;
-        } else if (code) {
-          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeErr) throw exchangeErr;
+
+          let finalUser = user;
+          try {
+            const savedProfile = await ProfileService.getProfile(user.id);
+            if (savedProfile) {
+              finalUser = { ...user, ...savedProfile, id: user.id, email: user.email, role: user.role };
+            }
+          } catch (_) {}
+
+          setUser(finalUser);
+          ProfileService.upsertProfile(finalUser).catch(() => {});
+
+          setStatusText('Welcome! Redirecting...');
+          setTimeout(() => {
+            router.replace('/(student)');
+          }, 300);
+          return;
         }
 
-        // 3. Fetch active user from Supabase session
-        setStatusText('Validating university account...');
-        let sbUser: any = null;
-
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user) {
-          sbUser = sessionData.session.user;
-        } else {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user) {
-            sbUser = userData.user;
-          }
-        }
-
-        if (!sbUser || !sbUser.email) {
-          // If already authenticated in memory store, silently redirect
+        // 5. Fallback check: wait for parallel store update or active session
+        for (let i = 0; i < 6; i++) {
           if (useAuthStore.getState().isAuthenticated) {
             router.replace('/(student)');
             return;
           }
-
-          // Retry check after brief delay
-          await new Promise((r) => setTimeout(r, 600));
-          const retrySession = await supabase.auth.getSession();
-          if (retrySession.data?.session?.user?.email) {
-            sbUser = retrySession.data.session.user;
-          } else {
-            const userRetry = await supabase.auth.getUser();
-            if (userRetry.data?.user?.email) {
-              sbUser = userRetry.data.user;
-            } else {
-              if (useAuthStore.getState().isAuthenticated) {
-                router.replace('/(student)');
-                return;
-              }
-              throw new Error('Could not establish an authenticated session. Please try logging in again.');
-            }
-          }
+          await new Promise((r) => setTimeout(r, 400));
         }
 
-        const email = sbUser.email!.toLowerCase();
-
-        // 4. Strict Domain Check for @poornima.edu.in
-        if (!isValidPoornimaEmail(email)) {
-          await supabase.auth.signOut();
-          setHasError(true);
-          Alert.alert(
-            'Access Restricted',
-            'Only official @poornima.edu.in Google Workspace accounts are permitted to enter the Sports Complex.',
-            [
-              {
-                text: 'OK',
-                onPress: () => router.replace('/(auth)/login'),
-              },
-            ]
-          );
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user?.email) {
+          const email = sessionData.session.user.email.toLowerCase();
+          if (!isValidPoornimaEmail(email)) {
+            await supabase.auth.signOut();
+            throw new Error(
+              'Access Restricted: Only official @poornima.edu.in Google Workspace accounts are permitted to enter the Sports Complex.'
+            );
+          }
+          const formatted = formatSupabaseUser(sessionData.session.user);
+          setUser(formatted);
+          router.replace('/(student)');
           return;
         }
 
-        // 5. Build user profile and update auth state
-        const freshUser = formatSupabaseUser(sbUser);
-        let finalUser = freshUser;
-
-        try {
-          const savedProfile = await ProfileService.getProfile(freshUser.id);
-          if (savedProfile) {
-            finalUser = { ...freshUser, ...savedProfile, id: freshUser.id, email: freshUser.email, role: freshUser.role };
-          }
-        } catch (_) {}
-
-        setUser(finalUser);
-
-        // Background profile upsert
-        ProfileService.upsertProfile(finalUser).catch(() => {});
-
-        setStatusText('Welcome! Redirecting...');
-        setTimeout(() => {
-          router.replace('/(student)');
-        }, 300);
+        throw new Error('Could not establish an authenticated session. Please try logging in again.');
       } catch (err: any) {
         // If user is already logged in (e.g. handled by openAuthSessionAsync in parallel), do not show error
         if (useAuthStore.getState().isAuthenticated) {
@@ -191,7 +174,7 @@ export default function AuthCallbackScreen() {
           return;
         }
 
-        console.warn('Auth callback resolution error:', err?.message);
+        console.warn('[AuthCallback] resolution error:', err?.message);
         setHasError(true);
         setStatusText('Authentication failed');
 
