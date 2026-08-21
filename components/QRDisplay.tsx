@@ -30,6 +30,18 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
   const [exitPayload, setExitPayload] = useState('');
   const [secondsToRefresh, setSecondsToRefresh] = useState(30);
 
+  // Synchronize pass status with stayExtensionStore in a dedicated effect (after render completes)
+  useEffect(() => {
+    if (currentPass?.id && currentPass?.status) {
+      useStayExtensionStore.getState().updatePassStatus(currentPass.id, currentPass.status);
+    }
+  }, [currentPass.id, currentPass.status]);
+
+  // Keep local state in sync if prop changes
+  useEffect(() => {
+    setCurrentPass(extension);
+  }, [extension.id, extension.status, extension.validUntil]);
+
   // Real-time listener & polling to detect when the guard approves Entry / Exit in Supabase
   useEffect(() => {
     let isMounted = true;
@@ -52,17 +64,12 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
 
         if (!error && data && data.length > 0 && isMounted) {
           const row = data[0];
-          setCurrentPass((prev) => {
-            if (prev.status !== row.status) {
-              useStayExtensionStore.getState().updatePassStatus(extension.id, row.status);
-            }
-            return {
-              ...prev,
-              status: row.status,
-              verifiedBy: row.verified_by || prev.verifiedBy,
-              verifiedAt: row.verified_at || prev.verifiedAt,
-            };
-          });
+          setCurrentPass((prev) => ({
+            ...prev,
+            status: row.status,
+            verifiedBy: row.verified_by || prev.verifiedBy,
+            verifiedAt: row.verified_at || prev.verifiedAt,
+          }));
         }
       } catch (err) {
         // Fallback quiet
@@ -90,7 +97,6 @@ export const QRDisplay: React.FC<QRDisplayProps> = ({
             (payload.new.id === extension.id || payload.new.transaction_id === extension.transactionId) &&
             isMounted
           ) {
-            useStayExtensionStore.getState().updatePassStatus(extension.id, payload.new.status);
             setCurrentPass((prev) => ({
               ...prev,
               status: payload.new.status,
