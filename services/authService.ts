@@ -20,35 +20,11 @@ function stableIdFromEmail(email: string, prefix: string): string {
 
 export class AuthService {
   /**
-   * Real Google OAuth sign-in flow (Native Google Play Services with OAuth Browser fallback)
+   * Real Google Sign-in flow (Native Google Play Services on mobile, OAuth on Web)
    */
   static async signInWithGoogle(): Promise<{ user: User }> {
-    try {
-      const { user } = await signInWithGoogleNative();
-      return { user };
-    } catch (err: any) {
-      // If user cancelled, don't fallback, just rethrow
-      if (
-        err.message &&
-        (err.message.toLowerCase().includes('cancelled') ||
-         err.message.toLowerCase().includes('dismissed') ||
-         err.code === '12501' ||
-         err.code === 'SIGN_IN_CANCELLED')
-      ) {
-        throw err;
-      }
-      // If native login was successful but email domain restriction blocked access, throw immediately
-      if (err.message && err.message.includes('Access Restricted')) {
-        throw err;
-      }
-      console.warn('Native Google Sign-In not available or failed, falling back to OAuth:', err?.message);
-      try {
-        const { user } = await signInWithGoogleOAuth();
-        return { user };
-      } catch (oauthErr: any) {
-        throw oauthErr || err;
-      }
-    }
+    const { user } = await signInWithGoogleNative();
+    return { user };
   }
 
   /**

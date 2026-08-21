@@ -39,19 +39,20 @@ function getGoogleSignin() {
 
 /**
  * Native Google Sign-In (Android) -> exchanges idToken with Supabase.
- * No browser, no redirect URL needed. Falls back to OAuth if native module unavailable.
+ * No browser, no redirect URL needed.
  */
 export async function signInWithGoogleNative(): Promise<{ user: User }> {
   const GoogleSignin = getGoogleSignin();
   if (!GoogleSignin) {
-    console.warn('Native GoogleSignin module not available in runtime binary, falling back to OAuth');
-    return signInWithGoogleOAuth();
+    if (Platform.OS === 'web') {
+      return signInWithGoogleOAuth();
+    }
+    throw new Error('Native Google Sign-In module (@react-native-google-signin/google-signin) is not available in runtime binary.');
   }
 
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
   if (!webClientId) {
-    console.warn('EXPO_PUBLIC_GOOGLE_CLIENT_ID is not configured, falling back to OAuth');
-    return signInWithGoogleOAuth();
+    throw new Error('EXPO_PUBLIC_GOOGLE_CLIENT_ID is not configured.');
   }
 
   try {
@@ -61,38 +62,46 @@ export async function signInWithGoogleNative(): Promise<{ user: User }> {
     });
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
   } catch (e: any) {
-    console.warn('GoogleSignin configure / Play Services check failed:', e?.message);
-    return signInWithGoogleOAuth();
+    console.error('[GoogleSignin] Configure or Play Services check failed:', e?.message || e);
+    throw new Error(`Google Play Services error: ${e?.message || 'Configuration failed'}`);
   }
 
   let signInResult: any;
   try {
     signInResult = await GoogleSignin.signIn();
   } catch (e: any) {
-    // If the user dismissed or cancelled the native account picker, do NOT fallback to browser OAuth
+    // User cancelled / dismissed the account picker
     if (
-      e?.code === '12501' || // SIGN_IN_CANCELLED
+      e?.code === '12501' ||
       e?.code === 'SIGN_IN_CANCELLED' ||
       e?.message?.toLowerCase().includes('cancel') ||
       e?.message?.toLowerCase().includes('dismiss')
     ) {
       throw new Error('Google Sign-In was cancelled.');
     }
-    console.warn('GoogleSignin.signIn() failed, falling back to OAuth:', e?.code, e?.message);
-    return signInWithGoogleOAuth();
+
+    // Keystore / SHA-1 mismatch error (DEVELOPER_ERROR / Code 10 / Code 12500)
+    if (e?.code === '10' || e?.code === 'DEVELOPER_ERROR' || e?.code === '12500') {
+      const errMsg = `Google Sign-In configuration error (Code ${e?.code}): SHA-1 certificate fingerprint of this build's keystore is not registered in Google Cloud Console OAuth Client for package com.sportsforall.app.`;
+      console.error('[GoogleSignin]', errMsg, e);
+      throw new Error(errMsg);
+    }
+
+    console.error('[GoogleSignin] signIn() failed:', e?.code, e?.message || e);
+    throw new Error(e?.message || `Google Sign-In failed (code: ${e?.code || 'UNKNOWN'}).`);
   }
 
   if (signInResult?.type === 'cancelled') {
     throw new Error('Google Sign-In was cancelled.');
   }
 
-  // Newer versions of the library nest the payload under `.data`
+  // Newer versions nest payload under `.data`
   const idToken: string | undefined =
     signInResult?.data?.idToken || signInResult?.idToken;
 
   if (!idToken) {
-    console.warn('No ID token received from native GoogleSignin, falling back to OAuth');
-    return signInWithGoogleOAuth();
+    console.error('[GoogleSignin] No ID token received from native GoogleSignin:', signInResult);
+    throw new Error('No ID token received from Google Play Services.');
   }
 
   const { data, error } = await supabase.auth.signInWithIdToken({
@@ -101,7 +110,8 @@ export async function signInWithGoogleNative(): Promise<{ user: User }> {
   });
 
   if (error) {
-    throw new Error(error.message || 'Google sign-in failed.');
+    console.error('[GoogleSignin] Supabase signInWithIdToken failed:', error);
+    throw new Error(error.message || 'Google sign-in authentication with Supabase failed.');
   }
 
   const sbUser = data.user;
@@ -125,7 +135,7 @@ export async function signInWithGoogleNative(): Promise<{ user: User }> {
 }
 
 /**
- * Perform Google OAuth through Supabase
+ * Perform Google OAuth through Supabase (Browser-based flow)
  */
 export async function signInWithGoogleOAuth(): Promise<{ user: User }> {
   const redirectUrl = makeRedirectUri({
@@ -156,27 +166,31 @@ export async function signInWithGoogleOAuth(): Promise<{ user: User }> {
     const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
     if (res.type === 'success' && res.url) {
-      // Extract tokens from callback URL (hash or query params)
+      // Extract tokens / code from callback URL
       const parsedUrl = new URL(res.url);
       const params = new URLSearchParams(parsedUrl.hash.replace(/^#/, '') || parsedUrl.search);
       
+      const code = params.get('code');
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
 
-      if (accessToken && refreshToken) {
+      let sessionDataUser = null;
+
+      if (code) {
+        const { data: sessionData, error: sessionErr } = await supabase.auth.exchangeCodeForSession(code);
+        if (sessionErr) throw sessionErr;
+        sessionDataUser = sessionData.user;
+      } else if (accessToken && refreshToken) {
         const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-
         if (sessionErr) throw sessionErr;
-        
-        const sbUser = sessionData.user;
-        if (!sbUser || !sbUser.email) {
-          throw new Error('No user email returned by Google.');
-        }
+        sessionDataUser = sessionData.user;
+      }
 
-        const email = sbUser.email.toLowerCase();
+      if (sessionDataUser && sessionDataUser.email) {
+        const email = sessionDataUser.email.toLowerCase();
 
         // Strict Domain Check
         if (!isValidPoornimaEmail(email)) {
@@ -186,7 +200,7 @@ export async function signInWithGoogleOAuth(): Promise<{ user: User }> {
           );
         }
 
-        return { user: formatSupabaseUser(sbUser) };
+        return { user: formatSupabaseUser(sessionDataUser) };
       }
     } else if (res.type === 'cancel' || res.type === 'dismiss') {
       throw new Error('Google Sign-In was cancelled.');
@@ -196,7 +210,7 @@ export async function signInWithGoogleOAuth(): Promise<{ user: User }> {
   // Check current session
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData?.user?.email) {
-    throw new Error('Could not retrieve authenticated user profile.');
+    throw new Error('Could not establish an authenticated session. Please try logging in again.');
   }
 
   const email = userData.user.email.toLowerCase();
