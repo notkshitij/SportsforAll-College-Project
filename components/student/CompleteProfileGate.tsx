@@ -45,11 +45,10 @@ export function CompleteProfileGate() {
   const { user, parsedEmail: storeParsedEmail, updateUserProfile, logout } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Compute parsed email from store or directly from user.email
+  // Compute parsed email directly from user.email or store
   const parsedEmail = useMemo(() => {
-    if (storeParsedEmail) return storeParsedEmail;
     if (user?.email) return parsePoornimaEmail(user.email);
-    return null;
+    return storeParsedEmail;
   }, [storeParsedEmail, user?.email]);
 
   // Keep fields empty for new onboarding (no pre-fill, as requested)

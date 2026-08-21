@@ -1,14 +1,15 @@
 /**
- * Utility to parse and verify Poornima University student email addresses.
+ * Robust University Email Parser & Credential Verification Engine
+ * for Poornima University (@poornima.edu.in).
  *
- * Standard Poornima Student Email Pattern:
- *   [YEAR][COURSE][SPECIALIZATION][FIRSTNAME][REGISTRATION]@poornima.edu.in
- * Examples:
- *   - 2024btechcsemanveer1234@poornima.edu.in
- *   - 2023bcaaijohn4521@poornima.edu.in
- *   - 2022btechaimlrahul543@poornima.edu.in
- *   - 2024.btech.cse.manveer.1234@poornima.edu.in
- *   - 2021btechcsmanish001@poornima.edu.in
+ * Supported Poornima Email Patterns:
+ *   - Contiguous: 2024btechcsemanveer1234@poornima.edu.in
+ *   - Short branch: 2024btcsemanveer1234@poornima.edu.in
+ *   - Delimited: 2024.btech.cse.manveer.1234@poornima.edu.in
+ *   - AI/ML, Data Science: 2022btechaimlrahul543@poornima.edu.in
+ *   - BCA/BBA: 2023bcaaijohn4521@poornima.edu.in
+ *   - Roll only: 2024btechcse001@poornima.edu.in
+ *   - Name first: manveer.2024btechcse1234@poornima.edu.in
  */
 
 export interface ParsedEmail {
@@ -16,7 +17,7 @@ export interface ParsedEmail {
   year: string; // e.g. "2024"
   course: string; // e.g. "B.Tech", "BCA", "BBA"
   rawCourse: string; // e.g. "btech"
-  specialization: string; // e.g. "CSE", "AI", "AIML"
+  specialization: string; // e.g. "CSE", "AI & ML"
   rawSpecialization: string; // e.g. "cse"
   firstName: string; // e.g. "Manveer"
   registration: string; // e.g. "1234"
@@ -35,7 +36,20 @@ export interface VerificationResult {
   mismatches: string[];
 }
 
-const KNOWN_COURSES: { key: string; label: string; aliases: string[] }[] = [
+interface CourseDef {
+  key: string;
+  label: string;
+  aliases: string[];
+}
+
+interface SpecDef {
+  key: string;
+  label: string;
+  aliases: string[];
+  keywords: string[];
+}
+
+const KNOWN_COURSES: CourseDef[] = [
   { key: 'btech', label: 'B.Tech', aliases: ['btech', 'b.tech', 'bt', 'b tech'] },
   { key: 'mtech', label: 'M.Tech', aliases: ['mtech', 'm.tech', 'mt', 'm tech'] },
   { key: 'bca', label: 'BCA', aliases: ['bca', 'computer application', 'computer applications'] },
@@ -54,10 +68,10 @@ const KNOWN_COURSES: { key: string; label: string; aliases: string[] }[] = [
   { key: 'phd', label: 'Ph.D', aliases: ['phd', 'doctorate'] },
 ];
 
-const KNOWN_SPECIALIZATIONS: { key: string; label: string; aliases: string[]; keywords: string[] }[] = [
+const KNOWN_SPECIALIZATIONS: SpecDef[] = [
   { key: 'aiml', label: 'AI & ML', aliases: ['aiml', 'ai-ml', 'ai_ml', 'ai/ml'], keywords: ['ai', 'ml', 'artificial intelligence', 'machine learning', 'aiml', 'cse', 'computer science'] },
   { key: 'aids', label: 'AI & Data Science', aliases: ['aids', 'ai-ds', 'ai_ds'], keywords: ['ai', 'data science', 'ds', 'aids', 'cse', 'computer science'] },
-  { key: 'cse', label: 'Computer Science & Engineering', aliases: ['cse', 'cs', 'ce'], keywords: ['cse', 'cs', 'computer science', 'computer engineering', 'software', 'information technology', 'it', 'comp sci'] },
+  { key: 'cse', label: 'Computer Science & Engineering', aliases: ['cse', 'cs', 'ce', 'comp', 'computer'], keywords: ['cse', 'cs', 'computer science', 'computer engineering', 'software', 'information technology', 'it', 'comp sci'] },
   { key: 'cs', label: 'Computer Science', aliases: ['cs'], keywords: ['computer science', 'cs', 'cse', 'software', 'it', 'comp sci'] },
   { key: 'ai', label: 'Artificial Intelligence', aliases: ['ai'], keywords: ['artificial intelligence', 'ai', 'computer science', 'cse', 'data science'] },
   { key: 'ds', label: 'Data Science', aliases: ['ds'], keywords: ['data science', 'ds', 'analytics', 'computer science', 'cse'] },
@@ -71,16 +85,13 @@ const KNOWN_SPECIALIZATIONS: { key: string; label: string; aliases: string[]; ke
   { key: 'ee', label: 'Electrical Engineering', aliases: ['ee', 'eee'], keywords: ['electrical', 'ee', 'eee'] },
 ];
 
-/**
- * Capitalizes first letter of each word
- */
 function capitalize(str: string): string {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
 /**
- * Parses Poornima student email to extract student attributes.
+ * Parses any Poornima University email address to extract embedded student attributes.
  */
 export function parsePoornimaEmail(email: string): ParsedEmail | null {
   if (!email || typeof email !== 'string') return null;
@@ -95,136 +106,101 @@ export function parsePoornimaEmail(email: string): ParsedEmail | null {
     return null;
   }
 
-  // Handle delimiter separated formats (e.g., 2024.btech.cse.manveer.1234 or 2024-btech-cse-manveer-1234)
-  if (localPart.includes('.') || localPart.includes('-') || localPart.includes('_')) {
-    const parts = localPart.split(/[._-]+/).filter(Boolean);
-    if (parts.length >= 3) {
-      const yearMatch = parts[0].match(/^(20\d{2}|\d{2})$/);
-      const year = yearMatch ? (parts[0].length === 2 ? `20${parts[0]}` : parts[0]) : '';
-
-      // Check if parts[1] is course
-      const courseFound = KNOWN_COURSES.find((c) => c.aliases.includes(parts[1]));
-      const rawCourse = courseFound ? courseFound.key : parts[1];
-      const courseLabel = courseFound ? courseFound.label : capitalize(parts[1]);
-
-      let rawSpecialization = '';
-      let specLabel = '';
-      let firstName = '';
-      let registration = '';
-
-      if (parts.length >= 5) {
-        // [Year, Course, Specialization, FirstName, Reg]
-        const specFound = KNOWN_SPECIALIZATIONS.find((s) => s.aliases.includes(parts[2]));
-        rawSpecialization = specFound ? specFound.key : parts[2];
-        specLabel = specFound ? specFound.label : parts[2].toUpperCase();
-        firstName = capitalize(parts[3]);
-        registration = parts.slice(4).join('');
-      } else if (parts.length === 4) {
-        // [Year, Course, FirstName, Reg] OR [Year, Spec, FirstName, Reg]
-        const specFound = KNOWN_SPECIALIZATIONS.find((s) => s.aliases.includes(parts[1]));
-        if (specFound && !courseFound) {
-          rawSpecialization = specFound.key;
-          specLabel = specFound.label;
-          firstName = capitalize(parts[2]);
-          registration = parts[3];
-        } else {
-          firstName = capitalize(parts[2]);
-          registration = parts[3];
-        }
-      } else {
-        // 3 parts: [Year, FirstName, Reg]
-        firstName = capitalize(parts[1]);
-        registration = parts[2];
-      }
-
-      if (year && firstName) {
-        return {
-          rawEmail: clean,
-          year,
-          course: courseLabel,
-          rawCourse,
-          specialization: specLabel,
-          rawSpecialization,
-          firstName,
-          registration,
-          isStudentEmail: true,
-        };
-      }
+  // 1. EXTRACT ADMISSION YEAR
+  // Look for 4-digit year (e.g. 2018-2030) or 2-digit year at start (e.g. 24 -> 2024)
+  let extractedYear = '';
+  const fourDigitYearMatch = localPart.match(/(20[1-3]\d)/);
+  if (fourDigitYearMatch) {
+    extractedYear = fourDigitYearMatch[1];
+  } else {
+    const twoDigitMatch = localPart.match(/^(1[8-9]|2[0-9])/);
+    if (twoDigitMatch) {
+      extractedYear = `20${twoDigitMatch[1]}`;
     }
   }
 
-  // Handle contiguous format: 2024btechcsemanveer1234
-  // 1. Year at start (4 digits: 20XX or 2 digits)
-  const yearMatch = localPart.match(/^(20\d{2}|\d{2})/);
-  if (!yearMatch) {
-    return null;
-  }
-
-  const rawYearStr = yearMatch[1];
-  const year = rawYearStr.length === 2 ? `20${rawYearStr}` : rawYearStr;
-  let remaining = localPart.slice(rawYearStr.length);
-
-  // 2. Trailing registration digits / code
-  const regMatch = remaining.match(/(\d+)$/);
-  let registration = '';
-  if (regMatch) {
-    registration = regMatch[1];
-    remaining = remaining.slice(0, -regMatch[1].length);
-  }
-
-  // 3. Match Course from beginning of remaining text
-  let rawCourse = '';
-  let courseLabel = '';
+  // 2. EXTRACT COURSE
+  let matchedCourse: CourseDef | null = null;
   for (const c of KNOWN_COURSES) {
-    for (const alias of c.aliases) {
-      if (remaining.startsWith(alias)) {
-        rawCourse = c.key;
-        courseLabel = c.label;
-        remaining = remaining.slice(alias.length);
+    // Sort aliases by length descending so "btech" matches before "bt"
+    const sortedAliases = [...c.aliases].sort((a, b) => b.length - a.length);
+    for (const alias of sortedAliases) {
+      const cleanAlias = alias.replace(/[^a-z0-9]/g, '');
+      const cleanLocal = localPart.replace(/[^a-z0-9]/g, '');
+      if (cleanLocal.includes(cleanAlias)) {
+        matchedCourse = c;
         break;
       }
     }
-    if (rawCourse) break;
+    if (matchedCourse) break;
   }
 
-  // 4. Match Specialization from remaining text
-  let rawSpecialization = '';
-  let specLabel = '';
+  // 3. EXTRACT SPECIALIZATION / BRANCH
+  let matchedSpec: SpecDef | null = null;
   for (const s of KNOWN_SPECIALIZATIONS) {
-    for (const alias of s.aliases) {
-      if (remaining.startsWith(alias)) {
-        rawSpecialization = s.key;
-        specLabel = s.label;
-        remaining = remaining.slice(alias.length);
+    const sortedAliases = [...s.aliases].sort((a, b) => b.length - a.length);
+    for (const alias of sortedAliases) {
+      const cleanAlias = alias.replace(/[^a-z0-9]/g, '');
+      const cleanLocal = localPart.replace(/[^a-z0-9]/g, '');
+      // Ensure we don't falsely match small substring inside course
+      if (cleanLocal.includes(cleanAlias)) {
+        // Double check it's not just part of the course name
+        matchedSpec = s;
         break;
       }
     }
-    if (rawSpecialization) break;
+    if (matchedSpec) break;
   }
 
-  // 5. Remaining letters are the student's first name
-  const firstName = capitalize(remaining.replace(/[^a-zA-Z]/g, ''));
-
-  if (!firstName) {
-    return null;
+  // 4. EXTRACT REGISTRATION DIGITS
+  // Remove the 4-digit admission year from the local part, then find remaining number sequences
+  let remainingForReg = localPart;
+  if (extractedYear) {
+    remainingForReg = remainingForReg.replace(extractedYear, '');
   }
+  const digitMatches = remainingForReg.match(/(\d+)/g);
+  let extractedRegistration = '';
+  if (digitMatches && digitMatches.length > 0) {
+    // Pick the most significant digits (often at the end or largest group)
+    extractedRegistration = digitMatches[digitMatches.length - 1];
+  }
+
+  // 5. EXTRACT FIRST NAME
+  // Remove year, course alias, spec alias, and all digits/delimiters from localPart
+  let remainingForName = localPart;
+  if (extractedYear) {
+    remainingForName = remainingForName.replace(extractedYear, '');
+  }
+  if (matchedCourse) {
+    for (const alias of matchedCourse.aliases) {
+      remainingForName = remainingForName.replace(alias.replace(/[^a-z0-9]/g, ''), '');
+    }
+  }
+  if (matchedSpec) {
+    for (const alias of matchedSpec.aliases) {
+      remainingForName = remainingForName.replace(alias.replace(/[^a-z0-9]/g, ''), '');
+    }
+  }
+  // Strip all digits and delimiters
+  const cleanNameLetters = remainingForName.replace(/[^a-zA-Z]/g, '');
+  const extractedFirstName = capitalize(cleanNameLetters);
 
   return {
     rawEmail: clean,
-    year,
-    course: courseLabel || 'B.Tech',
-    rawCourse: rawCourse || 'btech',
-    specialization: specLabel || (rawSpecialization ? rawSpecialization.toUpperCase() : ''),
-    rawSpecialization,
-    firstName,
-    registration,
+    year: extractedYear || '',
+    course: matchedCourse ? matchedCourse.label : '',
+    rawCourse: matchedCourse ? matchedCourse.key : '',
+    specialization: matchedSpec ? matchedSpec.label : '',
+    rawSpecialization: matchedSpec ? matchedSpec.key : '',
+    firstName: extractedFirstName || '',
+    registration: extractedRegistration || '',
     isStudentEmail: true,
   };
 }
 
 /**
  * Validates the student's manually entered details against their authenticated university email.
- * Red-flags any field that contradicts the email identity.
+ * Strictly red-flags any field that contradicts the email identity.
  */
 export function verifyStudentDetailsWithEmail(
   input: {
@@ -261,11 +237,11 @@ export function verifyStudentDetailsWithEmail(
   if (!cleanPhone) {
     errors.phone = 'Phone number is required';
   } else if (!/^[0-9+\-\s]{7,15}$/.test(cleanPhone)) {
-    errors.phone = 'Enter a valid phone number (10 digits)';
+    errors.phone = 'Enter a valid 10-digit phone number';
   }
 
-  // If no email could be parsed (e.g. demo account or general email), fallback to standard basic validation
-  if (!parsedEmail || !parsedEmail.isStudentEmail) {
+  // If no email could be parsed, basic checks apply
+  if (!parsedEmail) {
     return {
       isValid: Object.keys(errors).length === 0,
       errors,
@@ -274,22 +250,21 @@ export function verifyStudentDetailsWithEmail(
   }
 
   // 1. FIRST NAME VERIFICATION
-  // Student email only contains their first name.
-  // We extract the first word of the entered full name and verify it matches email first name.
-  if (cleanName && parsedEmail.firstName) {
+  // The first word of the entered full name must match the student's first name in their email
+  if (cleanName && parsedEmail.firstName && parsedEmail.firstName.length >= 2) {
     const enteredFirstName = cleanName.split(/\s+/)[0].toLowerCase();
     const expectedFirstName = parsedEmail.firstName.toLowerCase();
 
     if (enteredFirstName !== expectedFirstName) {
-      const msg = `First name "${cleanName.split(/\s+/)[0]}" must match email name "${parsedEmail.firstName}".`;
-      errors.name = `First name must be "${parsedEmail.firstName}" (as in your university email)`;
+      const msg = `First name "${cleanName.split(/\s+/)[0]}" does not match email student name ("${parsedEmail.firstName}").`;
+      errors.name = `First name must be "${parsedEmail.firstName}" (as in ${parsedEmail.rawEmail})`;
       mismatches.push(msg);
     }
   }
 
   // 2. REGISTRATION NUMBER VERIFICATION
-  // The entered registration code/number should match or contain the registration digits from the email.
-  if (cleanEnrollment && parsedEmail.registration) {
+  // The entered registration code must contain/match the registration digits from the email
+  if (cleanEnrollment && parsedEmail.registration && parsedEmail.registration.length >= 1) {
     const enteredDigits = cleanEnrollment.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     const emailReg = parsedEmail.registration.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
@@ -299,16 +274,15 @@ export function verifyStudentDetailsWithEmail(
       enteredDigits.endsWith(emailReg);
 
     if (!matchesReg) {
-      const msg = `Registration number must match your student email ID (ending with "${parsedEmail.registration}").`;
-      errors.enrollment = `Must contain "${parsedEmail.registration}" from your student email`;
+      const msg = `Registration number "${cleanEnrollment}" does not match email registration code ("${parsedEmail.registration}").`;
+      errors.enrollment = `Must contain "${parsedEmail.registration}" from your university email`;
       mismatches.push(msg);
     }
   }
 
   // 3. ADMISSION YEAR / ACADEMIC YEAR VERIFICATION
-  // Email starts with admission year (e.g. 2024).
-  // Student might enter "2024", "2nd Year", "2nd Year (2024)", "2024-2028", "2", "3rd Year", "Final Year", etc.
-  if (cleanYear && parsedEmail.year) {
+  // Must correspond to the admission year extracted from email (e.g. 2024)
+  if (cleanYear && parsedEmail.year && parsedEmail.year.length === 4) {
     const enteredYearStr = cleanYear.toLowerCase();
     const admissionYear = parsedEmail.year;
 
@@ -319,14 +293,14 @@ export function verifyStudentDetailsWithEmail(
     const twoDigitYear = admissionYear.slice(-2);
     const hasTwoDigit = enteredYearStr.includes(twoDigitYear);
 
-    // Check if user entered a standard year of study (1st, 2nd, 3rd, 4th, 5th, Final Year)
+    // Check for explicit conflicting 4-digit years like entering 2019 or 2030 when admission is 2024
+    const fourDigitMatch = enteredYearStr.match(/\b(20\d{2})\b/);
+    const hasConflictingFourDigit = fourDigitMatch && fourDigitMatch[1] !== admissionYear;
+
+    // Check if standard academic year string (e.g. "2nd Year", "1st Year", "3rd Year", "4th Year")
     const hasStandardStudyYear =
       /\b(1st|2nd|3rd|4th|5th|1|2|3|4|5|first|second|third|fourth|final)\b/i.test(enteredYearStr) ||
       enteredYearStr.includes('year');
-
-    // Check for explicit conflicting 4-digit years like entering 2018 or 2030 when admission is 2024
-    const fourDigitMatch = enteredYearStr.match(/\b(20\d{2})\b/);
-    const hasConflictingFourDigit = fourDigitMatch && fourDigitMatch[1] !== admissionYear;
 
     let isYearValid = (hasAdmissionYear || hasTwoDigit || hasStandardStudyYear) && !hasConflictingFourDigit;
 
@@ -337,7 +311,7 @@ export function verifyStudentDetailsWithEmail(
     }
   }
 
-  // 4. DEPARTMENT / COURSE VERIFICATION (Helpful warning / match if specified)
+  // 4. DEPARTMENT / COURSE VERIFICATION
   if (cleanDepartment && (parsedEmail.rawSpecialization || parsedEmail.rawCourse)) {
     const enteredDept = cleanDepartment.toLowerCase();
 
