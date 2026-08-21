@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { Input } from '../ui/Input';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
 import { User } from '../../types';
+import { parsePoornimaEmail, verifyStudentDetailsWithEmail } from '../../utils/emailParser';
 
 /**
  * Returns true only when every mandatory profile field is filled in.
@@ -36,32 +37,59 @@ export function isStudentProfileComplete(user: User | null): boolean {
 /**
  * Blocking onboarding screen. Rendered INSTEAD of the student tabs whenever
  * the logged-in student's profile is missing any mandatory field.
- * No fake/demo values are ever pre-filled here — the student must type
- * their own real details before they can use the rest of the app.
+ * No fake/demo values are pre-filled — the student must enter their own real details
+ * which are strictly verified against their Poornima University student email credentials.
  */
 export function CompleteProfileGate() {
   const { colors, isDarkMode } = useThemeStore();
-  const { user, updateUserProfile, logout } = useAuthStore();
+  const { user, parsedEmail: storeParsedEmail, updateUserProfile, logout } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const [name, setName] = useState(user?.name || '');
-  const [enrollment, setEnrollment] = useState(user?.enrollment || '');
-  const [department, setDepartment] = useState(user?.department || '');
-  const [year, setYear] = useState(user?.year || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  // Compute parsed email directly from user.email or store
+  const parsedEmail = useMemo(() => {
+    if (user?.email) return parsePoornimaEmail(user.email);
+    return storeParsedEmail;
+  }, [storeParsedEmail, user?.email]);
+
+  // Keep fields empty for new onboarding (no pre-fill, as requested)
+  const [name, setName] = useState('');
+  const [enrollment, setEnrollment] = useState('');
+  const [department, setDepartment] = useState('');
+  const [year, setYear] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [mismatchList, setMismatchList] = useState<string[]>([]);
 
-  const validate = () => {
-    const next: Record<string, string> = {};
-    if (!name.trim()) next.name = 'Name is required';
-    if (!enrollment.trim()) next.enrollment = 'Registration number is required';
-    if (!department.trim()) next.department = 'Department is required';
-    if (!year.trim()) next.year = 'Academic year is required';
-    if (!phone.trim()) next.phone = 'Phone number is required';
-    else if (!/^[0-9+\-\s]{7,15}$/.test(phone.trim())) next.phone = 'Enter a valid phone number';
-    setErrors(next);
-    return Object.keys(next).length === 0;
+  const validate = (): boolean => {
+    const verification = verifyStudentDetailsWithEmail(
+      {
+        name,
+        enrollment,
+        department,
+        year,
+        phone,
+      },
+      parsedEmail
+    );
+
+    setErrors(verification.errors);
+    setMismatchList(verification.mismatches);
+
+    if (!verification.isValid || verification.mismatches.length > 0) {
+      if (verification.mismatches.length > 0) {
+        Alert.alert(
+          '⚠️ Verification Mismatch',
+          `The credentials you entered do not match your university email (${user?.email}):\n\n• ` +
+            verification.mismatches.join('\n• ') +
+            '\n\nPlease correct the marked fields to continue.',
+          [{ text: 'Review & Correct', style: 'default' }]
+        );
+      }
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async () => {
@@ -70,14 +98,14 @@ export function CompleteProfileGate() {
     try {
       await updateUserProfile({
         name: name.trim(),
-        enrollment: enrollment.trim(),
+        enrollment: enrollment.trim().toUpperCase(),
         department: department.trim(),
         year: year.trim(),
         phone: phone.trim(),
       });
     } catch (error: any) {
       Alert.alert(
-        'Could Not Save',
+        'Could Not Save Profile',
         error?.message || 'Something went wrong while saving your profile. Please try again.'
       );
     } finally {
@@ -114,55 +142,130 @@ export function CompleteProfileGate() {
               { backgroundColor: isDarkMode ? 'rgba(59,130,246,0.15)' : '#EFF6FF' },
             ]}
           >
-            <Ionicons name="person-circle-outline" size={40} color={colors.primary} />
+            <Ionicons name="shield-checkmark" size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>Complete Your Profile</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Student Identity Verification</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Please fill in your real details below. You won't be able to use Sportsforall
-            until your profile is complete.
+            Please enter your official student credentials below. Details are cross-verified with your
+            authenticated Poornima University email ID.
           </Text>
         </View>
+
+        {/* Email Verification Banner */}
+        <View
+          style={[
+            styles.emailBanner,
+            {
+              backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : '#EFF6FF',
+              borderColor: isDarkMode ? '#1E3A8A' : '#BFDBFE',
+            },
+          ]}
+        >
+          <View style={styles.emailBannerHeader}>
+            <Ionicons name="mail-outline" size={16} color={colors.primary} />
+            <Text style={[styles.emailBannerLabel, { color: colors.primary }]}>
+              Authenticated University Account
+            </Text>
+          </View>
+          <Text style={[styles.emailValue, { color: colors.text }]}>{user?.email}</Text>
+          {parsedEmail?.isStudentEmail && (
+            <View style={styles.badgeRow}>
+              <View
+                style={[
+                  styles.parsedBadge,
+                  { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5' },
+                ]}
+              >
+                <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                <Text style={styles.parsedBadgeText}>Email Verified</Text>
+              </View>
+              <Text style={[styles.parsedHint, { color: colors.textMuted }]}>
+                {parsedEmail.firstName} • {parsedEmail.course} {parsedEmail.specialization} • Batch {parsedEmail.year}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Mismatch Alert Box if any */}
+        {mismatchList.length > 0 && (
+          <View style={styles.mismatchAlertBox}>
+            <View style={styles.mismatchHeader}>
+              <Ionicons name="alert-circle" size={18} color="#EF4444" />
+              <Text style={styles.mismatchTitle}>Detail Mismatch Red-Flag</Text>
+            </View>
+            {mismatchList.map((m, idx) => (
+              <Text key={idx} style={styles.mismatchItem}>
+                • {m}
+              </Text>
+            ))}
+          </View>
+        )}
 
         <Card variant="elevated" style={styles.formCard}>
           <Input
             label="Full Name"
-            placeholder="Your full name"
+            placeholder="e.g. Manveer Singh"
             value={name}
-            onChangeText={setName}
+            onChangeText={(val) => {
+              setName(val);
+              if (errors.name) {
+                setErrors((prev) => ({ ...prev, name: '' }));
+              }
+            }}
             leftIcon="person-outline"
             error={errors.name}
           />
           <Input
-            label="Registration Number"
-            placeholder="e.g. PU-2024-XXXX"
+            label="Registration / Roll Number"
+            placeholder="e.g. PU-2024-1234 or 1234"
             value={enrollment}
-            onChangeText={setEnrollment}
+            onChangeText={(val) => {
+              setEnrollment(val);
+              if (errors.enrollment) {
+                setErrors((prev) => ({ ...prev, enrollment: '' }));
+              }
+            }}
             leftIcon="id-card-outline"
             autoCapitalize="characters"
             error={errors.enrollment}
           />
           <Input
-            label="Department"
+            label="Department / Course"
             placeholder="e.g. Computer Science & Engineering"
             value={department}
-            onChangeText={setDepartment}
+            onChangeText={(val) => {
+              setDepartment(val);
+              if (errors.department) {
+                setErrors((prev) => ({ ...prev, department: '' }));
+              }
+            }}
             leftIcon="school-outline"
             error={errors.department}
           />
           <Input
             label="Academic Year"
-            placeholder="e.g. 2nd Year"
+            placeholder="e.g. 2nd Year (2024) or 2024"
             value={year}
-            onChangeText={setYear}
+            onChangeText={(val) => {
+              setYear(val);
+              if (errors.year) {
+                setErrors((prev) => ({ ...prev, year: '' }));
+              }
+            }}
             leftIcon="calendar-outline"
             error={errors.year}
             onFocus={handleScrollToBottom}
           />
           <Input
             label="Phone Number"
-            placeholder="Your contact number"
+            placeholder="10-digit mobile number"
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(val) => {
+              setPhone(val);
+              if (errors.phone) {
+                setErrors((prev) => ({ ...prev, phone: '' }));
+              }
+            }}
             leftIcon="call-outline"
             keyboardType="phone-pad"
             error={errors.phone}
@@ -172,19 +275,19 @@ export function CompleteProfileGate() {
           />
 
           <Button
-            title="Save & Continue"
+            title="Verify & Save Profile"
             variant="primary"
-            icon="checkmark-circle-outline"
+            icon="shield-checkmark-outline"
             onPress={handleSubmit}
             loading={isSaving}
             disabled={isSaving}
-            style={{ marginTop: 8 }}
+            style={{ marginTop: 12 }}
           />
         </Card>
 
         <TouchableOpacity onPress={() => logout()} style={styles.logoutLink}>
           <Text style={[styles.logoutLinkText, { color: colors.textMuted }]}>
-            Not you? Log out
+            Not you? Log out of this account
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -207,15 +310,15 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 18,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   title: {
     fontSize: 20,
@@ -228,6 +331,78 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: 'center',
     maxWidth: 320,
+  },
+  emailBanner: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 4,
+  },
+  emailBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emailBannerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  emailValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  parsedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  parsedBadgeText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  parsedHint: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  mismatchAlertBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 4,
+  },
+  mismatchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  mismatchTitle: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  mismatchItem: {
+    color: '#DC2626',
+    fontSize: 12,
+    lineHeight: 16,
   },
   formCard: {
     padding: 20,

@@ -6,6 +6,7 @@ import { supabase } from '../services/supabase';
 import { ProfileService } from '../services/profileService';
 import { INITIAL_GUARD_USER, INITIAL_STUDENT_USER } from '../services/mockDb';
 import { User, UserRole } from '../types';
+import { ParsedEmail, parsePoornimaEmail } from '../utils/emailParser';
 
 interface AuthState {
   user: User | null;
@@ -13,9 +14,11 @@ interface AuthState {
   isLoading: boolean;
   activeRole: UserRole | null;
   pendingEmail: string;
+  parsedEmail: ParsedEmail | null;
 
   // Actions
   setPendingEmail: (email: string) => void;
+  setParsedEmail: (data: ParsedEmail | null) => void;
   loginWithGoogle: () => Promise<User>;
   loginWithEmail: (email: string) => Promise<User>;
   loginAsDemoStudent: () => void;
@@ -60,9 +63,13 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       activeRole: null,
       pendingEmail: '',
+      parsedEmail: null,
 
       setPendingEmail: (email: string) => {
         set({ pendingEmail: email.trim().toLowerCase() });
+      },
+      setParsedEmail: (data) => {
+        set({ parsedEmail: data });
       },
 
       loginWithGoogle: async () => {
@@ -70,10 +77,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { user: freshUser } = await AuthService.signInWithGoogle();
           const mergedUser = await mergeWithSavedProfile(freshUser, get().user);
+          const parsed = parsePoornimaEmail(mergedUser.email);
           set({
             user: mergedUser,
             isAuthenticated: true,
             activeRole: mergedUser.role,
+            parsedEmail: parsed,
             isLoading: false,
           });
           // Persist the full profile to Supabase (fire-and-forget so login isn't blocked)
@@ -92,10 +101,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { user: freshUser } = await AuthService.authenticateByEmail(email);
           const mergedUser = await mergeWithSavedProfile(freshUser, get().user);
+          const parsed = parsePoornimaEmail(mergedUser.email);
           set({
             user: mergedUser,
             isAuthenticated: true,
             activeRole: mergedUser.role,
+            parsedEmail: parsed,
             isLoading: false,
           });
           // Persist the full profile to Supabase (fire-and-forget so login isn't blocked)
@@ -116,6 +127,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           activeRole: 'student',
           pendingEmail: student.email,
+          parsedEmail: null,
         });
       },
 
@@ -126,14 +138,17 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
           activeRole: 'guard',
           pendingEmail: guard.email,
+          parsedEmail: null,
         });
       },
 
       setUser: (user) => {
+        const parsed = user ? parsePoornimaEmail(user.email) : null;
         set({
           user,
           isAuthenticated: !!user,
           activeRole: user?.role || null,
+          parsedEmail: parsed,
         });
       },
 
@@ -146,6 +161,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           activeRole: null,
           pendingEmail: '',
+          parsedEmail: null,
         });
       },
 

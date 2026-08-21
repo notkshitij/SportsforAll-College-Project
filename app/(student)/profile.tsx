@@ -23,6 +23,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useStayExtensionStore } from '../../store/stayExtensionStore';
 import { useThemeStore } from '../../store/themeStore';
 import { formatTime12h, getRemainingTime } from '../../utils/dateUtils';
+import { parsePoornimaEmail, verifyStudentDetailsWithEmail } from '../../utils/emailParser';
 
 export default function StudentProfileScreen() {
   const router = useRouter();
@@ -118,6 +119,28 @@ export default function StudentProfileScreen() {
   }, [extensions, studentUser.id, colors, tick]);
 
   const handleSaveProfile = async () => {
+    const parsedEmail = parsePoornimaEmail(studentUser.email);
+    const verification = verifyStudentDetailsWithEmail(
+      {
+        name,
+        enrollment: studentUser.enrollment || '',
+        department,
+        year,
+        phone,
+      },
+      parsedEmail
+    );
+
+    if (!verification.isValid || verification.mismatches.length > 0) {
+      Alert.alert(
+        '⚠️ Verification Mismatch',
+        `The profile details you entered do not match your authenticated student email (${studentUser.email}):\n\n• ` +
+          verification.mismatches.join('\n• ') +
+          '\n\nPlease make sure your first name and academic details match your university email.'
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateUserProfile({
