@@ -50,9 +50,10 @@ export async function signInWithGoogleNative(): Promise<{ user: User }> {
     throw new Error('Native Google Sign-In module (@react-native-google-signin/google-signin) is not available in runtime binary.');
   }
 
-  const webClientId =
-    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
-    '414426318003-cf3npgbn68dhbs7mtg2mkqkdmkjer2fk.apps.googleusercontent.com';
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+  if (!webClientId) {
+    throw new Error('EXPO_PUBLIC_GOOGLE_CLIENT_ID is not configured.');
+  }
 
   try {
     GoogleSignin.configure({
