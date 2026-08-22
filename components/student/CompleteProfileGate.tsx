@@ -263,11 +263,13 @@ export function CompleteProfileGate() {
             placeholder="10-digit mobile number"
             value={phone}
             onChangeText={(val) => {
-              setPhone(val);
+              const numericVal = val.replace(/[^0-9]/g, '');
+              setPhone(numericVal);
               if (errors.phone) {
                 setErrors((prev) => ({ ...prev, phone: '' }));
               }
             }}
+            maxLength={10}
             leftIcon="call-outline"
             keyboardType="phone-pad"
             error={errors.phone}
