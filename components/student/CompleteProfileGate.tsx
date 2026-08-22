@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useState } from 'react';
 import {
@@ -41,6 +42,7 @@ export function isStudentProfileComplete(user: User | null): boolean {
  * which are strictly verified against their Poornima University student email credentials.
  */
 export function CompleteProfileGate() {
+  const router = useRouter();
   const { colors, isDarkMode } = useThemeStore();
   const { user, parsedEmail: storeParsedEmail, updateUserProfile, logout } = useAuthStore();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -285,7 +287,13 @@ export function CompleteProfileGate() {
           />
         </Card>
 
-        <TouchableOpacity onPress={() => logout()} style={styles.logoutLink}>
+        <TouchableOpacity 
+          onPress={async () => {
+            await logout();
+            router.replace('/(auth)/login');
+          }} 
+          style={styles.logoutLink}
+        >
           <Text style={[styles.logoutLinkText, { color: colors.textMuted }]}>
             Not you? Log out of this account
           </Text>
