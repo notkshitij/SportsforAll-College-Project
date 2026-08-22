@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Platform,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useThemeStore } from '../store/themeStore';
 import { RazorpayOrder, RazorpayPaymentPayload, User } from '../types';
@@ -28,13 +28,28 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
   visible,
   order,
   student,
-  upiApp = 'Google Pay',
+  upiApp = 'UPI',
   onSuccess,
   onFailure,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
   const { colors, isDarkMode } = useThemeStore();
-  const [isWebLoading, setIsWebLoading] = useState(true);
+
+  // Safely construct prefill fields without empty strings (which causes Razorpay checkout validation errors)
+  const prefillData = useMemo(() => {
+    const prefill: Record<string, string> = {};
+    if (student.name && student.name.trim()) {
+      prefill.name = student.name.trim();
+    }
+    if (student.email && student.email.trim()) {
+      prefill.email = student.email.trim();
+    }
+    if (student.phone && student.phone.trim()) {
+      prefill.contact = student.phone.trim();
+    }
+    return prefill;
+  }, [student]);
 
   // Web fallback (direct DOM checkout.js integration)
   useEffect(() => {
@@ -61,11 +76,7 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
             name: 'SportsForAll - Poornima University',
             description: 'Sports Complex Stay Pass (4 PM - 8 PM)',
             order_id: order.order_id,
-            prefill: {
-              name: student.name || '',
-              email: student.email || '',
-              contact: student.phone || '',
-            },
+            prefill: prefillData,
             notes: {
               student_id: student.id,
               enrollment: student.enrollment,
@@ -99,7 +110,7 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
 
       loadWebScript();
     }
-  }, [visible, order]);
+  }, [visible, order, prefillData]);
 
   if (!visible || !order) return null;
 
@@ -172,11 +183,7 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
                 name: "SportsForAll",
                 description: "Sports Complex Stay Pass (4 PM - 8 PM)",
                 order_id: ${JSON.stringify(order.order_id)},
-                prefill: {
-                  name: ${JSON.stringify(student.name || '')},
-                  email: ${JSON.stringify(student.email || '')},
-                  contact: ${JSON.stringify(student.phone || '')}
-                },
+                prefill: ${JSON.stringify(prefillData)},
                 notes: {
                   student_id: ${JSON.stringify(student.id || '')},
                   enrollment: ${JSON.stringify(student.enrollment || '')},
@@ -252,12 +259,13 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        {/* Header */}
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header with Safe Area Insets Padding to prevent status bar overlap */}
         <View
           style={[
             styles.header,
             {
+              paddingTop: Math.max(insets.top, 12) + 6,
               backgroundColor: isDarkMode ? colors.surfaceCard : '#FFFFFF',
               borderBottomColor: colors.border,
             },
@@ -305,13 +313,13 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
             style={styles.webView}
           />
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   header: {
@@ -319,7 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
   },
   headerLeft: {
