@@ -236,7 +236,7 @@ export function verifyStudentDetailsWithEmail(
   }
   if (!cleanPhone) {
     errors.phone = 'Phone number is required';
-  } else if (!/^[0-9]{10}$/.test(cleanPhone)) {
+  } else if (!/^\d{10}$/.test(cleanPhone)) {
     errors.phone = 'Enter a valid 10-digit phone number';
   }
 
