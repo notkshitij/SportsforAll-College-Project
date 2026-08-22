@@ -22,6 +22,7 @@
   "exclude": [
     "node_modules",
     "frontend",
-    "guard-app"
+    "guard-app",
+    "supabase"
   ]
 }

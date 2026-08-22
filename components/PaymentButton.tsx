@@ -152,7 +152,7 @@ export const PaymentButton: React.FC<PaymentButtonProps> = ({
                 <View style={styles.secBadge}>
                   <Ionicons name="shield-checkmark" size={14} color={colors.success} />
                   <Text style={[styles.secText, { color: colors.success }]}>
-                    Mock Auto-Approval in 2s
+                    Razorpay Test Gateway
                   </Text>
                 </View>
               </View>

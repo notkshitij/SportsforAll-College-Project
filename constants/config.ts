@@ -19,7 +19,6 @@ export const APP_CONFIG = {
   
   // Mock Defaults
   MOCK_OTP: '123456',
-  PAYMENT_MOCK_DELAY_MS: 2000,
   
   // Demo Accounts
   DEMO_STUDENT: {
@@ -43,7 +42,7 @@ export const APP_CONFIG = {
   } as User,
   
   // Razorpay Key & Test Details
-  RAZORPAY_KEY_ID: 'rzp_test_sportsforall_pu',
+  RAZORPAY_KEY_ID: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_STL4fuxf4bqwm9',
   CURRENCY: 'INR',
   CURRENCY_SYMBOL: '₹',
   

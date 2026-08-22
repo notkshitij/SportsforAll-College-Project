@@ -72,13 +72,6 @@ export interface ScanLog {
   scannedAt: string;
 }
 
-export interface PaymentInitiationParams {
-  student: User;
-  duration?: StayDurationHours;
-  reason?: string;
-  upiApp?: string;
-}
-
 export interface PaymentResult {
   success: boolean;
   transactionId: string;
@@ -86,4 +79,27 @@ export interface PaymentResult {
   paidAt: string;
   paymentMethod: string;
   error?: string;
+  orderId?: string;
+  razorpayPaymentId?: string;
 }
+
+export interface RazorpayOrder {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+}
+
+export interface RazorpayPaymentPayload {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+export interface RazorpayVerificationResult {
+  verified: boolean;
+  order_id?: string;
+  payment_id?: string;
+  error?: string;
+}
+

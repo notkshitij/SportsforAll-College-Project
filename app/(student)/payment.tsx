@@ -1,8 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { PaymentButton } from '../../components/PaymentButton';
+import { RazorpayCheckoutModal } from '../../components/RazorpayCheckoutModal';
 import { Card } from '../../components/ui/Card';
 import { Header } from '../../components/ui/Header';
 import { APP_CONFIG } from '../../constants/config';
@@ -11,6 +20,7 @@ import { PaymentService } from '../../services/paymentService';
 import { useAuthStore } from '../../store/authStore';
 import { useStayExtensionStore } from '../../store/stayExtensionStore';
 import { useThemeStore } from '../../store/themeStore';
+import { RazorpayOrder, RazorpayPaymentPayload } from '../../types';
 import { formatTime12h, getTodayStayWindow } from '../../utils/dateUtils';
 import { formatCurrencyINR } from '../../utils/formatUtils';
 
@@ -23,15 +33,62 @@ export default function PaymentScreen() {
   const studentUser = user as NonNullable<typeof user>;
 
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
+  const [activeOrder, setActiveOrder] = useState<RazorpayOrder | null>(null);
+  const [selectedUpiApp, setSelectedUpiApp] = useState('Google Pay');
 
   const { validFrom, validUntil } = getTodayStayWindow();
 
-  const handleProcessPayment = async (selectedUpiApp: string) => {
+  /**
+   * 1. Initiate Razorpay Order from server-side Supabase Edge Function
+   */
+  const handleInitiatePayment = async (selectedApp: string) => {
+    setSelectedUpiApp(selectedApp);
     setLoading(true);
     try {
-      const { paymentResult, extension } = await PaymentService.processUpiPayment({
+      const order = await PaymentService.createOrder({
         student: studentUser,
+        amount: APP_CONFIG.EXTENSION_PRICE_INR,
+      });
+
+      setActiveOrder(order);
+      setCheckoutVisible(true);
+    } catch (err: any) {
+      console.warn('[PaymentScreen] Order creation failed:', err);
+      Alert.alert(
+        'Order Creation Failed',
+        err.message || 'Could not connect to payment gateway. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * 2. Handle Razorpay Checkout Callback & Server Signature Verification
+   */
+  const handleCheckoutSuccess = async (payload: RazorpayPaymentPayload) => {
+    setCheckoutVisible(false);
+    setVerifying(true);
+
+    try {
+      // Strictly verify signature server-side before generating pass
+      const verification = await PaymentService.verifyPayment(payload);
+
+      if (!verification.verified) {
+        throw new Error(
+          verification.error || 'Server rejected payment signature verification.'
+        );
+      }
+
+      // Generate verified pass and seal QR
+      const { paymentResult, extension } = PaymentService.createVerifiedStayPass({
+        student: studentUser,
+        orderId: payload.razorpay_order_id,
+        razorpayPaymentId: payload.razorpay_payment_id,
         upiApp: selectedUpiApp,
+        amount: APP_CONFIG.EXTENSION_PRICE_INR,
       });
 
       // Save into store
@@ -52,18 +109,34 @@ export default function PaymentScreen() {
           paidAt: paymentResult.paidAt,
         },
       });
-    } catch (err) {
-      console.warn('Payment failed:', err);
+    } catch (err: any) {
+      console.warn('[PaymentScreen] Payment verification failed:', err);
+      Alert.alert(
+        'Payment Verification Failed',
+        err.message || 'The payment could not be securely verified. No pass was generated.'
+      );
     } finally {
-      setLoading(false);
+      setVerifying(false);
     }
+  };
+
+  const handleCheckoutFailure = (error: any) => {
+    setCheckoutVisible(false);
+    console.warn('[PaymentScreen] Checkout failed / dismissed:', error);
+    if (error && typeof error === 'object' && error.description) {
+      Alert.alert('Payment Incomplete', error.description);
+    }
+  };
+
+  const handleCheckoutClose = () => {
+    setCheckoutVisible(false);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Confirm & Pay"
-        subtitle="UPI Gateway Simulation"
+        subtitle="Razorpay Test Gateway"
         showBack
         showThemeToggle={false}
       />
@@ -130,10 +203,10 @@ export default function PaymentScreen() {
 
             <View style={styles.detailRow}>
               <Text style={[styles.detailLabel, { color: colors.textMuted }]}>
-                Payment Mode
+                Payment Gateway
               </Text>
               <Text style={[styles.detailValue, { color: colors.text }]}>
-                UPI (Unified Payments Interface)
+                Razorpay Standard Checkout (UPI Test)
               </Text>
             </View>
           </View>
@@ -157,17 +230,27 @@ export default function PaymentScreen() {
               </Text>
             </View>
             <Text style={[styles.mockNotice, { color: colors.textMuted }]}>
-              (Mock Payment: Auto-success approval after 2s)
+              Verified Server-Side via Razorpay HMAC-SHA256
             </Text>
           </View>
         </Card>
+
+        {/* Verification in-progress indicator */}
+        {verifying && (
+          <Card variant="outlined" style={styles.verifyingCard}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.verifyingText, { color: colors.text }]}>
+              Verifying payment signature with server...
+            </Text>
+          </Card>
+        )}
 
         {/* UPI Payment Selector & Trigger */}
         <View style={styles.paymentSection}>
           <PaymentButton
             amount={APP_CONFIG.EXTENSION_PRICE_INR}
-            onPayPress={handleProcessPayment}
-            loading={loading}
+            onPayPress={handleInitiatePayment}
+            loading={loading || verifying}
           />
         </View>
 
@@ -176,17 +259,28 @@ export default function PaymentScreen() {
           <View style={styles.trustItem}>
             <Ionicons name="lock-closed" size={16} color={colors.success} />
             <Text style={[styles.trustText, { color: colors.textMuted }]}>
-              100% Secure UPI Payment
+              256-Bit Encrypted Razorpay Checkout
             </Text>
           </View>
           <View style={styles.trustItem}>
-            <Ionicons name="flash" size={16} color={colors.primary} />
+            <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
             <Text style={[styles.trustText, { color: colors.textMuted }]}>
-              Instant QR Pass Generation
+              Server-Verified QR Generation
             </Text>
           </View>
         </View>
       </ScrollView>
+
+      {/* Razorpay Standard Checkout WebView Modal */}
+      <RazorpayCheckoutModal
+        visible={checkoutVisible}
+        order={activeOrder}
+        student={studentUser}
+        upiApp={selectedUpiApp}
+        onSuccess={handleCheckoutSuccess}
+        onFailure={handleCheckoutFailure}
+        onClose={handleCheckoutClose}
+      />
     </View>
   );
 }
@@ -278,6 +372,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  verifyingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    padding: 14,
+  },
+  verifyingText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   paymentSection: {
     marginTop: 4,
