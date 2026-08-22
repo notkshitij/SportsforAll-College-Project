@@ -14,6 +14,10 @@ import { WebView } from 'react-native-webview';
 import { useThemeStore } from '../store/themeStore';
 import { RazorpayOrder, RazorpayPaymentPayload, User } from '../types';
 
+// Hosted Poornima University / SportsForAll Merchant Logo for Razorpay checkout
+const MERCHANT_LOGO_URL =
+  'https://ktjfylevvydjvfycpjqm.supabase.co/storage/v1/object/public/public-assets/pu_logo.png';
+
 interface RazorpayCheckoutModalProps {
   visible: boolean;
   order: RazorpayOrder | null;
@@ -75,6 +79,7 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
             currency: order.currency || 'INR',
             name: 'SportsForAll - Poornima University',
             description: 'Sports Complex Stay Pass (4 PM - 8 PM)',
+            image: MERCHANT_LOGO_URL,
             order_id: order.order_id,
             prefill: prefillData,
             notes: {
@@ -182,6 +187,7 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
                 currency: ${JSON.stringify(order.currency || 'INR')},
                 name: "SportsForAll",
                 description: "Sports Complex Stay Pass (4 PM - 8 PM)",
+                image: ${JSON.stringify(MERCHANT_LOGO_URL)},
                 order_id: ${JSON.stringify(order.order_id)},
                 prefill: ${JSON.stringify(prefillData)},
                 notes: {
